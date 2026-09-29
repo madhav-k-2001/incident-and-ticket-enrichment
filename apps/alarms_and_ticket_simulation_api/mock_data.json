@@ -1,0 +1,644 @@
+{
+  "assets": [
+    {
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "type": "compressor",
+      "criticality": "critical",
+      "manufacturer": "Siemens Energy",
+      "model": "STC-SV (10-5)",
+      "install_date": "2019-04-12",
+      "related_assets": ["M-501", "CMP-202"],
+      "specifications": {
+        "design_pressure_bar": 52.0,
+        "normal_suction_pressure_bar": 2.8,
+        "max_discharge_temp_c": 135.0,
+        "rated_power_kw": 4500,
+        "anti_surge_valve_tag": "02-FV-201",
+        "p_and_id_tag": "02-CMP-201-K"
+      },
+      "maintenance_history_count": 8,
+      "last_overhaul": "2025-11-20"
+    },
+    {
+      "asset_id": "CMP-202",
+      "asset_name": "Wet Gas Compressor 202 (Standby)",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "type": "compressor",
+      "criticality": "high",
+      "manufacturer": "Siemens Energy",
+      "model": "STC-SV (10-5)",
+      "install_date": "2019-04-15",
+      "related_assets": ["CMP-201", "M-502"],
+      "specifications": {
+        "design_pressure_bar": 52.0,
+        "rated_power_kw": 4500,
+        "status": "standby_ready"
+      },
+      "maintenance_history_count": 5,
+      "last_overhaul": "2026-01-10"
+    },
+    {
+      "asset_id": "M-501",
+      "asset_name": "Compressor Drive Motor 501",
+      "site": "EastRefinery",
+      "unit": "Unit 5",
+      "type": "motor",
+      "criticality": "high",
+      "manufacturer": "ABB",
+      "model": "AMI 500L4A",
+      "install_date": "2019-04-10",
+      "related_assets": ["CMP-201"],
+      "specifications": {
+        "voltage_v": 6600,
+        "rated_rpm": 1490,
+        "vibration_trip_threshold_mms": 11.2,
+        "vibration_warn_threshold_mms": 6.5
+      },
+      "maintenance_history_count": 6,
+      "last_overhaul": "2025-08-14"
+    },
+    {
+      "asset_id": "M-502",
+      "asset_name": "Compressor Drive Motor 502",
+      "site": "EastRefinery",
+      "unit": "Unit 5",
+      "type": "motor",
+      "criticality": "medium",
+      "manufacturer": "ABB",
+      "model": "AMI 500L4A",
+      "install_date": "2019-04-10",
+      "related_assets": ["CMP-202"],
+      "specifications": {
+        "voltage_v": 6600,
+        "rated_rpm": 1490
+      },
+      "maintenance_history_count": 3,
+      "last_overhaul": "2025-09-02"
+    },
+    {
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "type": "pump",
+      "criticality": "critical",
+      "manufacturer": "Sulzer",
+      "model": "GSG 80-260",
+      "install_date": "2018-09-01",
+      "related_assets": ["BFP-102"],
+      "specifications": {
+        "rated_flow_m3h": 120.0,
+        "head_m": 850.0,
+        "bearing_temp_trip_c": 95.0,
+        "bearing_temp_warn_c": 80.0
+      },
+      "maintenance_history_count": 12,
+      "last_overhaul": "2025-04-18"
+    },
+    {
+      "asset_id": "BFP-102",
+      "asset_name": "Boiler Feed Pump 102",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "type": "pump",
+      "criticality": "high",
+      "manufacturer": "Sulzer",
+      "model": "GSG 80-260",
+      "install_date": "2018-09-01",
+      "related_assets": ["BFP-101"],
+      "specifications": {
+        "rated_flow_m3h": 120.0,
+        "head_m": 850.0
+      },
+      "maintenance_history_count": 9,
+      "last_overhaul": "2025-06-22"
+    },
+    {
+      "asset_id": "TK-401",
+      "asset_name": "Intermediate Naphtha Storage Tank 401",
+      "site": "NorthPlant",
+      "unit": "Unit 4",
+      "type": "tank",
+      "criticality": "medium",
+      "manufacturer": "CBI Tank Builders",
+      "model": "Cone Roof 5000m3",
+      "install_date": "2015-02-18",
+      "related_assets": [],
+      "specifications": {
+        "capacity_m3": 5000,
+        "max_safe_level_percent": 90.0,
+        "low_level_alarm_percent": 15.0
+      },
+      "maintenance_history_count": 4,
+      "last_overhaul": "2024-10-10"
+    }
+  ],
+  "alarms": [
+    {
+      "alarm_id": "ALM-9021",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "CMP-DISCH-P-HI",
+      "alarm_name": "Compressor 2nd Stage Discharge Pressure High",
+      "severity": "critical",
+      "status": "active",
+      "start_time": "2026-09-29T18:15:00Z",
+      "end_time": null,
+      "ack_time": null,
+      "value": 48.2,
+      "threshold": 42.0,
+      "unit_of_measure": "bar",
+      "priority_score": 94.5
+    },
+    {
+      "alarm_id": "ALM-9022",
+      "asset_id": "M-501",
+      "asset_name": "Compressor Drive Motor 501",
+      "site": "EastRefinery",
+      "unit": "Unit 5",
+      "alarm_code": "MTR-VIB-HI",
+      "alarm_name": "Drive Motor Inboard Bearing Vibration High",
+      "severity": "high",
+      "status": "active",
+      "start_time": "2026-09-29T18:18:30Z",
+      "end_time": null,
+      "ack_time": null,
+      "value": 7.8,
+      "threshold": 6.5,
+      "unit_of_measure": "mm/s",
+      "priority_score": 82.0
+    },
+    {
+      "alarm_id": "ALM-9025",
+      "asset_id": "BFP-102",
+      "asset_name": "Boiler Feed Pump 102",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "PMP-SUCT-P-LO",
+      "alarm_name": "Feed Pump Suction Pressure Low",
+      "severity": "medium",
+      "status": "active",
+      "start_time": "2026-09-29T17:40:00Z",
+      "end_time": null,
+      "ack_time": "2026-09-29T17:45:10Z",
+      "value": 1.4,
+      "threshold": 1.8,
+      "unit_of_measure": "bar",
+      "priority_score": 65.0
+    },
+    {
+      "alarm_id": "ALM-8011",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "BFP-BEAR-TEMP-HI",
+      "alarm_name": "Thrust Bearing Temperature High",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-09-18T08:12:00Z",
+      "end_time": "2026-09-18T10:45:00Z",
+      "ack_time": "2026-09-18T08:15:30Z",
+      "value": 84.5,
+      "threshold": 80.0,
+      "unit_of_measure": "°C",
+      "priority_score": 78.0
+    },
+    {
+      "alarm_id": "ALM-8012",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "BFP-BEAR-TEMP-HI",
+      "alarm_name": "Thrust Bearing Temperature High",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-09-02T14:30:00Z",
+      "end_time": "2026-09-02T16:10:00Z",
+      "ack_time": "2026-09-02T14:33:00Z",
+      "value": 83.2,
+      "threshold": 80.0,
+      "unit_of_measure": "°C",
+      "priority_score": 76.5
+    },
+    {
+      "alarm_id": "ALM-8013",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "BFP-BEAR-TEMP-HI",
+      "alarm_name": "Thrust Bearing Temperature High",
+      "severity": "critical",
+      "status": "cleared",
+      "start_time": "2026-08-14T03:20:00Z",
+      "end_time": "2026-08-14T07:55:00Z",
+      "ack_time": "2026-08-14T03:22:15Z",
+      "value": 91.0,
+      "threshold": 80.0,
+      "unit_of_measure": "°C",
+      "priority_score": 91.0
+    },
+    {
+      "alarm_id": "ALM-8014",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "BFP-LUBE-OIL-P-LO",
+      "alarm_name": "Lube Oil Header Pressure Low",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-08-14T03:18:00Z",
+      "end_time": "2026-08-14T04:30:00Z",
+      "ack_time": "2026-08-14T03:19:00Z",
+      "value": 1.2,
+      "threshold": 1.5,
+      "unit_of_measure": "bar",
+      "priority_score": 85.0
+    },
+    {
+      "alarm_id": "ALM-8015",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "site": "EastRefinery",
+      "unit": "Unit 1",
+      "alarm_code": "BFP-BEAR-TEMP-HI",
+      "alarm_name": "Thrust Bearing Temperature High",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-07-28T11:05:00Z",
+      "end_time": "2026-07-28T13:40:00Z",
+      "ack_time": "2026-07-28T11:08:00Z",
+      "value": 82.8,
+      "threshold": 80.0,
+      "unit_of_measure": "°C",
+      "priority_score": 75.0
+    },
+    {
+      "alarm_id": "ALM-7101",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "CMP-SUCT-P-HI",
+      "alarm_name": "Suction Pressure High",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-06-15T14:01:10Z",
+      "end_time": "2026-06-15T14:45:00Z",
+      "ack_time": "2026-06-15T14:02:00Z",
+      "value": 3.9,
+      "threshold": 3.5,
+      "unit_of_measure": "bar",
+      "priority_score": 72.0
+    },
+    {
+      "alarm_id": "ALM-7102",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "CMP-DISCH-P-HI",
+      "alarm_name": "Compressor 2nd Stage Discharge Pressure High",
+      "severity": "critical",
+      "status": "cleared",
+      "start_time": "2026-06-15T14:02:30Z",
+      "end_time": "2026-06-15T14:50:00Z",
+      "ack_time": "2026-06-15T14:03:00Z",
+      "value": 47.9,
+      "threshold": 42.0,
+      "unit_of_measure": "bar",
+      "priority_score": 93.0
+    },
+    {
+      "alarm_id": "ALM-7103",
+      "asset_id": "M-501",
+      "asset_name": "Compressor Drive Motor 501",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "MTR-VIB-HI",
+      "alarm_name": "Drive Motor Inboard Bearing Vibration High",
+      "severity": "high",
+      "status": "cleared",
+      "start_time": "2026-06-15T14:03:45Z",
+      "end_time": "2026-06-15T14:40:00Z",
+      "ack_time": "2026-06-15T14:04:15Z",
+      "value": 8.2,
+      "threshold": 6.5,
+      "unit_of_measure": "mm/s",
+      "priority_score": 80.0
+    },
+    {
+      "alarm_id": "ALM-7104",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "CMP-SURGE-WARN",
+      "alarm_name": "Anti-Surge Proximity Warning",
+      "severity": "critical",
+      "status": "cleared",
+      "start_time": "2026-06-15T14:04:10Z",
+      "end_time": "2026-06-15T14:35:00Z",
+      "ack_time": "2026-06-15T14:04:30Z",
+      "value": 1.05,
+      "threshold": 1.10,
+      "unit_of_measure": "ratio",
+      "priority_score": 95.0
+    },
+    {
+      "alarm_id": "ALM-6001",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "site": "EastRefinery",
+      "unit": "Unit 2",
+      "alarm_code": "CMP-SEAL-DP-LOW",
+      "alarm_name": "Dry Gas Seal Differential Pressure Low",
+      "severity": "medium",
+      "status": "active",
+      "start_time": "2026-09-29T06:00:00Z",
+      "end_time": null,
+      "ack_time": "2026-09-29T06:05:00Z",
+      "value": 2.1,
+      "threshold": 2.5,
+      "unit_of_measure": "bar",
+      "priority_score": 45.0
+    },
+    {
+      "alarm_id": "ALM-6004",
+      "asset_id": "TK-401",
+      "asset_name": "Intermediate Naphtha Storage Tank 401",
+      "site": "NorthPlant",
+      "unit": "Unit 4",
+      "alarm_code": "TK-LVL-LO-WARN",
+      "alarm_name": "Storage Tank Level Low Advisory",
+      "severity": "low",
+      "status": "active",
+      "start_time": "2026-09-20T00:00:00Z",
+      "end_time": null,
+      "ack_time": "2026-09-20T00:15:00Z",
+      "value": 12.4,
+      "threshold": 15.0,
+      "unit_of_measure": "%",
+      "priority_score": 25.0
+    }
+  ],
+  "recommendations": {
+    "ALM-9021": {
+      "alarm_id": "ALM-9021",
+      "asset_id": "CMP-201",
+      "asset_name": "Wet Gas Compressor 201",
+      "likely_causes": [
+        "Anti-surge recycle valve FV-201 pneumatic actuator supply pressure failure or stem binding",
+        "Downstream separation unit block valve unintended throttling",
+        "Process gas molecular weight surge causing second-stage volumetric compression spike"
+      ],
+      "immediate_actions": [
+        "Switch anti-surge controller FIC-201 from AUTO to MANUAL and command 25% open stroke immediately",
+        "Check instrument air pressure gauge PI-2014 on FV-201 positioner manifold",
+        "Dispatch field operator to verify bypass line manual isolation valve 02-V-119 status",
+        "Prepare urgent incident ticket for Instrumentation & Controls specialist"
+      ],
+      "safety_precautions": [
+        "Do not exceed 49.5 bar; automated emergency shutdown ESD-2 will trip unit at 50.0 bar",
+        "Ensure Compressor Hall 2 acoustic and gas sensors are monitored"
+      ],
+      "related_assets": [
+        {
+          "asset_id": "M-501",
+          "asset_name": "Compressor Drive Motor 501",
+          "role": "Primary Driver",
+          "status": "Vibration Warning (7.8 mm/s)"
+        }
+      ],
+      "historical_insights": "Past incident INC-1042 showed identical discharge pressure rise due to loose mechanical linkage on valve positioner arm."
+    },
+    "ALM-9022": {
+      "alarm_id": "ALM-9022",
+      "asset_id": "M-501",
+      "asset_name": "Compressor Drive Motor 501",
+      "likely_causes": [
+        "Motor shaft misalignment exacerbated by compressor discharge pressure pulsations",
+        "Inboard rolling element bearing cage deterioration",
+        "Degraded bearing grease lubrication"
+      ],
+      "immediate_actions": [
+        "Inspect bearing housing surface temperature using portable infrared thermometer",
+        "Review motor vibration spectrum on DCS transient monitoring screen",
+        "Check correlation with Compressor C-201 discharge pressure state"
+      ],
+      "safety_precautions": [
+        "Trip threshold is 11.2 mm/s RMS; execute controlled motor shutdown if vibration exceeds 9.5 mm/s"
+      ],
+      "related_assets": [
+        {
+          "asset_id": "CMP-201",
+          "role": "Driven Unit",
+          "status": "Discharge Pressure High"
+        }
+      ],
+      "historical_insights": "Active open ticket INC-1188 already tracks ongoing vibration monitoring on this motor."
+    },
+    "ALM-8013": {
+      "alarm_id": "ALM-8013",
+      "asset_id": "BFP-101",
+      "asset_name": "Boiler Feed Pump 101",
+      "likely_causes": [
+        "Lube oil cooler heat exchanger fouling",
+        "Thrust bearing pad wear due to recurring high axial thrust load",
+        "Oil supply orifice partially clogged"
+      ],
+      "immediate_actions": [
+        "Switch to standby lube oil cooler bank",
+        "Verify lube oil pressure downstream of filter is >= 1.8 bar",
+        "If bearing temp exceeds 92°C, start standby Boiler Feed Pump 102 and ramp down BFP-101"
+      ],
+      "safety_precautions": [
+        "Trip limit is 95.0°C; do not operate pump above trip limit under any circumstances"
+      ],
+      "related_assets": [
+        {
+          "asset_id": "BFP-102",
+          "role": "Redundant Pump",
+          "status": "Ready in Standby"
+        }
+      ],
+      "historical_insights": "INC-0955 previously addressed high bearing temperatures by backflushing the plate cooler."
+    }
+  },
+  "tickets": [
+    {
+      "ticket_id": "INC-1042",
+      "asset_id": "CMP-201",
+      "alarm_id": "ALM-7102",
+      "title": "Wet Gas Compressor 201 High Discharge Pressure Trip",
+      "status": "closed",
+      "severity": "critical",
+      "priority": "P1",
+      "symptom": "Discharge pressure spiked past 46 bar during load transition",
+      "root_cause": "Anti-surge valve positioner feedback linkage was mechanically loose, preventing full valve opening.",
+      "resolution_notes": "Tightened feedback arm linkage on FV-201, performed 0-100% stroke calibration with instrument air. Unit restarted with normal pressure regulation.",
+      "assigned_to": "Instrumentation Team",
+      "assigned_user": "Sarah Jenkins (Lead I&C)",
+      "created_at": "2026-03-14T09:20:00Z",
+      "resolved_at": "2026-03-14T14:45:00Z",
+      "sop_reference": "SOP-CMP-201 §2.3"
+    },
+    {
+      "ticket_id": "INC-0891",
+      "asset_id": "CMP-201",
+      "alarm_id": "ALM-7101",
+      "title": "Compressor C-201 Suction Filter Differential Pressure High",
+      "status": "closed",
+      "severity": "high",
+      "priority": "P2",
+      "symptom": "Rapid increase in differential pressure across suction coalescer",
+      "root_cause": "Upstream hydrocarbon particulate carryover fouled the primary filter mesh.",
+      "resolution_notes": "Isolated filter basket A, cleaned dual stainless mesh elements, verified differential pressure restored to 0.15 bar.",
+      "assigned_to": "Mechanical Maintenance",
+      "assigned_user": "Dave Miller",
+      "created_at": "2025-11-12T10:00:00Z",
+      "resolved_at": "2025-11-12T16:30:00Z",
+      "sop_reference": "SOP-CMP-201 §4.1"
+    },
+    {
+      "ticket_id": "INC-1188",
+      "asset_id": "M-501",
+      "alarm_id": "ALM-9022",
+      "title": "Drive Motor 501 Inboard Bearing Vibration Warning",
+      "status": "open",
+      "severity": "medium",
+      "priority": "P3",
+      "symptom": "Continuous vibration reading ~6.8-7.8 mm/s on motor inboard bearing housing",
+      "root_cause": "Pending full vibration spectrum phase analysis during turnaround",
+      "resolution_notes": "High-frequency acoustic monitoring sensors installed. Motor greased on 2026-09-28. Open ticket for mechanical team review.",
+      "assigned_to": "Mechanical Reliability Team",
+      "assigned_user": "Elena Rostova",
+      "created_at": "2026-09-28T11:00:00Z",
+      "resolved_at": null,
+      "sop_reference": "SOP-MTR-501 §1.2"
+    },
+    {
+      "ticket_id": "INC-0955",
+      "asset_id": "BFP-101",
+      "alarm_id": "ALM-8013",
+      "title": "Boiler Feed Pump 101 Thrust Bearing Overheat",
+      "status": "closed",
+      "severity": "high",
+      "priority": "P2",
+      "symptom": "Thrust bearing temperature exceeded 90°C under full steam boiler demand",
+      "root_cause": "Cooling water side of lube oil plate heat exchanger fouled with river silt.",
+      "resolution_notes": "Backflushed cooler bundle with citric acid solution. Temperature stabilized at 72°C under full load.",
+      "assigned_to": "Boiler House Operations",
+      "assigned_user": "Rajesh Kumar",
+      "created_at": "2026-08-14T04:00:00Z",
+      "resolved_at": "2026-08-14T09:15:00Z",
+      "sop_reference": "SOP-BFP-101 §3.0"
+    },
+    {
+      "ticket_id": "INC-0710",
+      "asset_id": "BFP-101",
+      "alarm_id": "ALM-8014",
+      "title": "Boiler Feed Pump 101 Lube Oil Auxiliary Pump Failure",
+      "status": "closed",
+      "severity": "critical",
+      "priority": "P1",
+      "symptom": "Lube oil pressure dropped to 1.2 bar when main shaft pump transitioned",
+      "root_cause": "Auxiliary electric oil pump motor breaker tripped on thermal overload.",
+      "resolution_notes": "Replaced thermal overload relay in MCC panel Unit 1. Tested automatic cut-in sequence successfully 3 times.",
+      "assigned_to": "Electrical Maintenance",
+      "assigned_user": "Alex Chen",
+      "created_at": "2026-07-28T11:30:00Z",
+      "resolved_at": "2026-07-28T14:10:00Z",
+      "sop_reference": "SOP-BFP-101 §2.1"
+    }
+  ],
+  "flood_windows": [
+    {
+      "start": "2026-06-15T14:00:00Z",
+      "end": "2026-06-15T14:10:00Z",
+      "alarm_count": 14,
+      "peak_rate_per_min": 3.8,
+      "primary_contributing_assets": ["CMP-201", "M-501"]
+    }
+  ],
+  "correlations": [
+    {
+      "source_asset": "CMP-201",
+      "target_asset": "M-501",
+      "source_alarm_code": "CMP-DISCH-P-HI",
+      "target_alarm_code": "MTR-VIB-HI",
+      "correlation_coefficient": 0.91,
+      "avg_lag_minutes": 3.5,
+      "cooccurrence_count": 5,
+      "significance": "high",
+      "description": "Compressor discharge overpressure consistently precedes Drive Motor inboard bearing vibration spike by ~3.5 minutes."
+    },
+    {
+      "source_asset": "BFP-101",
+      "target_asset": "BFP-101",
+      "source_alarm_code": "BFP-LUBE-OIL-P-LO",
+      "target_alarm_code": "BFP-BEAR-TEMP-HI",
+      "correlation_coefficient": 0.84,
+      "avg_lag_minutes": 4.0,
+      "cooccurrence_count": 3,
+      "significance": "high",
+      "description": "Lube oil pressure dip triggers rise in thrust bearing temperature within 4 minutes."
+    }
+  ],
+  "rationalization_candidates": [
+    {
+      "alarm_id": "ALM-6001",
+      "asset_id": "CMP-201",
+      "alarm_code": "CMP-SEAL-DP-LOW",
+      "alarm_name": "Dry Gas Seal Differential Pressure Low",
+      "classification": "nuisance",
+      "recurrence_count": 18,
+      "stale_duration_minutes": 0,
+      "justification": "Self-clears within 30 seconds during compressor load transitions without operator action.",
+      "recommended_action": "Apply 45-second on-delay deadband filter in DCS."
+    },
+    {
+      "alarm_id": "ALM-6004",
+      "asset_id": "TK-401",
+      "alarm_code": "TK-LVL-LO-WARN",
+      "alarm_name": "Storage Tank Level Low Advisory",
+      "classification": "stale",
+      "recurrence_count": 1,
+      "stale_duration_minutes": 4320,
+      "justification": "Tank has been decommissioned for inspection while alarm remains active.",
+      "recommended_action": "Place alarm in approved maintenance suppression shelf."
+    }
+  ],
+  "kpi_definitions": [
+    {
+      "kpi_id": "alarm_flood_rate",
+      "name": "Alarm Flood Frequency",
+      "standard": "ISA-18.2",
+      "target": "< 10 alarms per 10 minutes",
+      "description": "Identifies periods exceeding operator cognitive capacity."
+    },
+    {
+      "kpi_id": "nuisance_alarm_rate",
+      "name": "Nuisance Alarm Percentage",
+      "standard": "EEMUA 191",
+      "target": "< 5% of total alarms",
+      "description": "Identifies alarms activating frequently without actionable intent."
+    },
+    {
+      "kpi_id": "average_ack_delay",
+      "name": "Average Acknowledgment Delay",
+      "standard": "ISA-18.2",
+      "target": "< 60 seconds",
+      "description": "Measures operator responsiveness to unacknowledged alarms."
+    }
+  ]
+}

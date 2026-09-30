@@ -1,22 +1,4 @@
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    container_name: ingestion_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ingestion_db}
-    ports:
-      - "${POSTGRES_PORT:-5434}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ingestion_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: ingestion_redis
@@ -41,16 +23,12 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
     volumes:
       - .:/app
       - uploads_data:/app/uploads
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -62,20 +40,15 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
     volumes:
       - .:/app
       - uploads_data:/app/uploads
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
 volumes:
-  pgdata:
   redisdata:
   uploads_data:

@@ -67,12 +67,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function handleFilesSelected(files) {
     for (const file of files) {
       const ext = file.name.split(".").pop().toLowerCase();
-      if (["pdf", "docx", "doc"].includes(ext)) {
+      if (["pdf", "docx", "doc", "md", "markdown"].includes(ext)) {
         if (!stagedFiles.some(f => f.name === file.name && f.size === file.size)) {
           stagedFiles.push(file);
         }
       } else {
-        alert(`File "${file.name}" is not supported. Please upload PDF or DOCX files.`);
+        alert(`File "${file.name}" is not supported. Please upload PDF, DOCX or Markdown files.`);
       }
     }
     renderStagedFiles();

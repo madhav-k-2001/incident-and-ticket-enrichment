@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_MAX_TPM: int = 24000
     RATE_LIMIT_MAX_RPD: int = 950
 
-    # PostgreSQL Database
+    # PostgreSQL Database. If DATABASE_URL is set (e.g. a Neon connection string
+    # ending in ?sslmode=require) it takes precedence over the POSTGRES_* parts.
+    DATABASE_URL: str = ""
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "ingestion_db"
@@ -41,6 +43,13 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL
+            # SQLAlchemy needs an explicit driver; Neon hands out postgres:// / postgresql://
+            for prefix in ("postgresql://", "postgres://"):
+                if url.startswith(prefix):
+                    url = "postgresql+psycopg2://" + url[len(prefix):]
+            return url
         return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     @property

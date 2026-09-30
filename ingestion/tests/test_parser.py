@@ -3,7 +3,51 @@ import pytest
 from reportlab.pdfgen import canvas
 from docx import Document as DocxDocument
 
-from worker.parser import parse_pdf, parse_docx, parse_document
+from worker.parser import parse_pdf, parse_docx, parse_document, parse_markdown
+from worker.chunker import chunk_document_sections
+
+
+MD_SAMPLE = """Preamble text.
+
+# Title
+Intro body.
+
+## Setup
+Install things.
+
+```bash
+# not a heading
+echo hi
+```
+
+## Usage
+Run things.
+
+### Advanced
+Deep stuff.
+
+# Empty
+"""
+
+
+def test_parse_markdown_sections(tmp_path):
+    p = tmp_path / "doc.md"
+    p.write_text(MD_SAMPLE, encoding="utf-8")
+    secs = parse_markdown(str(p))
+    assert [s["heading"] for s in secs] == [
+        "", "Title", "Title > Setup", "Title > Usage", "Title > Usage > Advanced"
+    ]
+    assert "# not a heading" in secs[2]["text"]
+    assert [s["page_number"] for s in secs] == [1, 2, 3, 4, 5]
+    assert parse_document(str(p)) == secs
+
+
+def test_markdown_chunks_follow_sections(tmp_path):
+    p = tmp_path / "doc.md"
+    p.write_text(MD_SAMPLE, encoding="utf-8")
+    chunks = chunk_document_sections(parse_markdown(str(p)), chunk_size=1000, chunk_overlap=50)
+    assert len(chunks) == 5
+    assert chunks[1]["content"].startswith("# Title")
 
 
 @pytest.fixture

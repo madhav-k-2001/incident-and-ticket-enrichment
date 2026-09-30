@@ -59,13 +59,13 @@ async def upload_documents(
     db: Session = Depends(get_db)
 ):
     """
-    Accepts multiple PDF or DOCX file uploads, saves them, creates DB records,
+    Accepts multiple PDF, DOCX or Markdown file uploads, saves them, creates DB records,
     and enqueues them for asynchronous ingestion via Redis.
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided.")
 
-    allowed_extensions = {".pdf", ".docx", ".doc"}
+    allowed_extensions = {".pdf", ".docx", ".doc", ".md", ".markdown"}
     uploaded_docs = []
 
     for file in files:
@@ -73,7 +73,7 @@ async def upload_documents(
         if ext not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type '{ext}' for file '{file.filename}'. Allowed: PDF, DOCX."
+                detail=f"Unsupported file type '{ext}' for file '{file.filename}'. Allowed: PDF, DOCX, MD."
             )
 
         # Generate unique storage filename to avoid collisions

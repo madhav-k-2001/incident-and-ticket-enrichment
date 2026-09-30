@@ -78,10 +78,10 @@
         <!-- Multi-file Dropzone -->
         <div class="card dropzone-card">
           <h2 class="card-title">Upload Documents</h2>
-          <p class="card-desc">Drag and drop multiple PDF or Word (DOCX) files. They are automatically enqueued in Redis and processed asynchronously.</p>
+          <p class="card-desc">Drag and drop multiple PDF, Word (DOCX) or Markdown (.md) files. They are automatically enqueued in Redis and processed asynchronously.</p>
           
           <div id="drop-area" class="drop-area">
-            <input type="file" id="file-elem" multiple accept=".pdf,.docx,.doc" class="file-input" />
+            <input type="file" id="file-elem" multiple accept=".pdf,.docx,.doc,.md,.markdown" class="file-input" />
             <div class="drop-prompt">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -89,7 +89,7 @@
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
               <p class="drop-main-text"><strong>Choose files</strong> or drag & drop them here</p>
-              <p class="drop-hint">Supported formats: PDF, DOCX (Multiple files supported)</p>
+              <p class="drop-hint">Supported formats: PDF, DOCX, Markdown (Multiple files supported)</p>
             </div>
           </div>
 

@@ -115,6 +115,15 @@ def chunk_document_sections(
         raw_text = sec.get("text", "")
         text_chunks = split_text_recursive(raw_text, max_chunk_size=size, overlap=overlap)
 
+        # Markdown sections: sub-chunks after the first lose the heading line,
+        # so prefix the heading path to keep each chunk self-describing.
+        heading = sec.get("heading")
+        if heading:
+            text_chunks = [
+                c if i == 0 else f"[{heading}]\n{c}"
+                for i, c in enumerate(text_chunks)
+            ]
+
         for text in text_chunks:
             all_chunks.append({
                 "chunk_index": chunk_index,

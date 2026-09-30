@@ -24,7 +24,6 @@ from agents.tool import HostedMCPTool
 
 from apps.backend.app.config import get_settings
 from apps.backend.services.agent_service import AgentService
-from apps.backend.services.chat_history_service import ChatHistoryService
 from common.load_mcp_service import MCPServerConfigService
 from db.client import DatabaseClient
 
@@ -48,7 +47,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Loaded %d MCP server(s)", len(mcp_servers))
 
     app.state.db_client = db_client
-    app.state.chat_history_service = ChatHistoryService(db=db_client)
     app.state.agent_service = AgentService(
         name=settings.AGENT_NAME,
         model=settings.AGENT_MODEL,

@@ -264,6 +264,26 @@ def get_asset_metadata(asset_id: str):
             return asset
     raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
 
+KNOWN_ALARM_FIELDS = {
+    "ack_time",
+    "alarm_code",
+    "alarm_id",
+    "alarm_name",
+    "asset_id",
+    "asset_name",
+    "end_time",
+    "priority_score",
+    "severity",
+    "site",
+    "start_time",
+    "status",
+    "threshold",
+    "unit",
+    "unit_of_measure",
+    "value",
+}
+NUMERIC_ALARM_FIELDS = {"priority_score", "threshold", "value"}
+
 @app.get("/alarms", tags=["Alarms"])
 def get_alarms(
     asset_id: Optional[str] = None,
@@ -279,6 +299,13 @@ def get_alarms(
     sort_order: str = "desc"
 ):
     """03 - Get Alarms (sets alarm_id in Postman)"""
+    known_fields = KNOWN_ALARM_FIELDS | {k for a in DATA_STORE["alarms"] for k in a.keys()}
+    if sort_by not in known_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown sort_by field '{sort_by}'. Valid fields are: {', '.join(sorted(known_fields))}"
+        )
+
     filtered = DATA_STORE["alarms"]
 
     if asset_id:
@@ -294,7 +321,21 @@ def get_alarms(
 
     # Sort
     reverse = (sort_order.lower() == "desc")
-    filtered = sorted(filtered, key=lambda x: x.get(sort_by) or "", reverse=reverse)
+
+    def sort_key(alarm: dict):
+        val = alarm.get(sort_by)
+        if val is None:
+            return (1 if not reverse else -1, 0, 0.0, "")
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            return (0, 0, float(val), "")
+        if sort_by in NUMERIC_ALARM_FIELDS:
+            try:
+                return (0, 0, float(val), "")
+            except (ValueError, TypeError):
+                pass
+        return (0, 1, 0.0, str(val))
+
+    filtered = sorted(filtered, key=sort_key, reverse=reverse)
 
     # Paginate
     total_count = len(filtered)

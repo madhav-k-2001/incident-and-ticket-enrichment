@@ -1,0 +1,1 @@
+"""Ingestion pipeline application package."""

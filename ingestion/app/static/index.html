@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Ingestion Pipeline | Gemini Embedding 2 & pgvector</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-title">Ingestion Pipeline</h1>
+          <span class="logo-subtitle">Gemini Embedding 2 &bull; Redis Queue &bull; pgvector</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div id="system-health-badge" class="badge badge-health">
+          <span class="status-dot"></span> Checking System...
+        </div>
+      </div>
+    </header>
+
+    <!-- Rate Limit Metrics Bar -->
+    <section class="quota-dashboard">
+      <div class="quota-card">
+        <div class="quota-header">
+          <span class="quota-label">TPM (Tokens / Minute)</span>
+          <span class="quota-val" id="tpm-val">0 / 30,000</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="tpm-fill" style="width: 0%;"></div>
+        </div>
+        <div class="quota-caption">Safety Cap: 24,000 TPM</div>
+      </div>
+
+      <div class="quota-card">
+        <div class="quota-header">
+          <span class="quota-label">RPM (Requests / Minute)</span>
+          <span class="quota-val" id="rpm-val">0 / 100</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="rpm-fill" style="width: 0%;"></div>
+        </div>
+        <div class="quota-caption">Safety Cap: 80 RPM</div>
+      </div>
+
+      <div class="quota-card">
+        <div class="quota-header">
+          <span class="quota-label">RPD (Daily Quota)</span>
+          <span class="quota-val" id="rpd-val">0 / 1,000</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="rpd-fill" style="width: 0%;"></div>
+        </div>
+        <div class="quota-caption">Safety Cap: 950 RPD</div>
+      </div>
+    </section>
+
+    <!-- Main Content Layout -->
+    <main class="main-layout">
+      <!-- Left Column: Upload & Live Ingestion -->
+      <section class="content-left">
+        <!-- Multi-file Dropzone -->
+        <div class="card dropzone-card">
+          <h2 class="card-title">Upload Documents</h2>
+          <p class="card-desc">Drag and drop multiple PDF or Word (DOCX) files. They are automatically enqueued in Redis and processed asynchronously.</p>
+          
+          <div id="drop-area" class="drop-area">
+            <input type="file" id="file-elem" multiple accept=".pdf,.docx,.doc" class="file-input" />
+            <div class="drop-prompt">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="drop-main-text"><strong>Choose files</strong> or drag & drop them here</p>
+              <p class="drop-hint">Supported formats: PDF, DOCX (Multiple files supported)</p>
+            </div>
+          </div>
+
+          <!-- Staged Files Preview -->
+          <div id="staged-files-list" class="staged-files-list hidden">
+            <div class="staged-header">
+              <span id="staged-count">0 files selected</span>
+              <button id="clear-staged-btn" class="btn btn-secondary btn-sm">Clear</button>
+            </div>
+            <ul id="staged-items" class="staged-items"></ul>
+            <button id="upload-btn" class="btn btn-primary btn-block">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              Enqueue for Ingestion
+            </button>
+          </div>
+        </div>
+
+        <!-- Ingestion Status Table -->
+        <div class="card table-card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">Ingestion Monitor</h2>
+              <p class="card-desc">Live status of documents being processed by the worker</p>
+            </div>
+            <button id="refresh-docs-btn" class="btn btn-secondary btn-sm" title="Refresh">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="documents-table">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Size</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="documents-tbody">
+                <tr>
+                  <td colspan="5" class="empty-state">No documents uploaded yet. Drop files above to start!</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Semantic Search Playground -->
+      <section class="content-right">
+        <div class="card search-card">
+          <h2 class="card-title">Semantic Search Playground</h2>
+          <p class="card-desc">Query pgvector embeddings using Gemini Embedding 2. Searches top-K nearest document chunks by cosine similarity.</p>
+
+          <form id="search-form" class="search-form">
+            <div class="search-input-group">
+              <input 
+                type="text" 
+                id="search-query" 
+                class="input-field" 
+                placeholder="Ask a question or enter keywords..." 
+                required 
+              />
+              <button type="submit" id="search-btn" class="btn btn-primary">Search</button>
+            </div>
+
+            <div class="search-options">
+              <div class="option-item">
+                <label for="top-k-slider">Top Results: <strong id="top-k-display">5</strong></label>
+                <input type="range" id="top-k-slider" min="1" max="15" value="5" />
+              </div>
+              <div class="option-item">
+                <label for="filter-doc">Filter Document:</label>
+                <select id="filter-doc" class="input-select">
+                  <option value="">All Ingested Documents</option>
+                </select>
+              </div>
+            </div>
+          </form>
+
+          <div id="search-results-container" class="search-results-container">
+            <div class="search-placeholder">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <p>Type a natural language query above to test vector retrieval.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Chunk Inspector Modal -->
+    <div id="chunk-modal" class="modal hidden">
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="modal-doc-title">Document Chunks</h3>
+            <p class="modal-subtitle" id="modal-doc-subtitle">Extracted text chunks & vector details</p>
+          </div>
+          <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+          <div class="loading-spinner">Loading chunks...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

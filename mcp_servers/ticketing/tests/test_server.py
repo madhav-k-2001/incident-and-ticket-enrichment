@@ -75,38 +75,33 @@ async def test_search_similar_tickets_keeps_relevance_order(connect) -> None:
     assert scores == sorted(scores, reverse=True) and len(tickets) <= 3
 
 
-async def test_create_ticket_without_confirm_is_preview_only(connect, fake_api: FakeTicketingApi) -> None:
+async def test_create_ticket_writes_and_propagates_trace_id(connect, fake_api: FakeTicketingApi) -> None:
     async with connect() as client:
-        result = await client.call_tool("create_ticket", {"draft": DRAFT})
-
-    assert result.structured_content["committed"] is False
-    assert result.structured_content["pending_changes"]["asset_id"] == "CMP-201"
-    assert fake_api.requests == []
-
-
-async def test_create_ticket_with_confirm_writes_and_propagates_trace_id(connect, fake_api: FakeTicketingApi) -> None:
-    async with connect() as client:
-        result = await client.call_tool(
-            "create_ticket", {"draft": DRAFT, "confirm": True}, meta={"trace_id": "trace-e2e-1"}
-        )
+        result = await client.call_tool("create_ticket", {"draft": DRAFT}, meta={"trace_id": "trace-e2e-1"})
 
     outcome = result.structured_content
-    assert outcome["committed"] is True
+    assert outcome["ticket"]["ticket_id"]
     assert outcome["trace_id"] == "trace-e2e-1"
     assert fake_api.requests[0].headers["trace-id"] == "trace-e2e-1"
     assert outcome["ticket"]["audit_trail"][0]["trace_id"] == "trace-e2e-1"
 
 
-async def test_update_ticket_preview_then_commit(connect) -> None:
+async def test_update_ticket_writes(connect) -> None:
     args = {"ticket_id": "INC-1188", "changes": {"status": "resolved", "work_notes": "Bearing replaced"}}
 
     async with connect() as client:
-        preview = (await client.call_tool("update_ticket", args)).structured_content
-        committed = (await client.call_tool("update_ticket", {**args, "confirm": True})).structured_content
+        outcome = (await client.call_tool("update_ticket", args)).structured_content
 
-    assert preview["committed"] is False and preview["ticket"]["status"] == "open"
-    assert committed["ticket"]["status"] == "resolved"
-    assert committed["ticket"]["resolved_at"] is not None
+    assert outcome["ticket"]["status"] == "resolved"
+    assert outcome["ticket"]["resolved_at"] is not None
+
+
+async def test_write_tools_have_no_confirm_argument(connect) -> None:
+    async with connect() as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+
+    for name in ("create_ticket", "update_ticket"):
+        assert "confirm" not in tools[name].input_schema["properties"]
 
 
 async def test_unknown_ticket_is_a_readable_tool_error(connect) -> None:

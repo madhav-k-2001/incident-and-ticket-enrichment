@@ -106,7 +106,5 @@ class TicketList(ToolResult):
 
 
 class WriteOutcome(ToolResult):
-    committed: bool = Field(description="False means preview only - nothing was written.")
     message: str
-    ticket: Ticket | None = Field(default=None, description="Resulting ticket, or current state when previewing an update.")
-    pending_changes: dict[str, Any] | None = Field(default=None, description="Payload awaiting confirmation.")
+    ticket: Ticket = Field(description="The ticket as created or updated.")

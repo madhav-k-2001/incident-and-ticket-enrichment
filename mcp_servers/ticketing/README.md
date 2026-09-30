@@ -1,25 +1,25 @@
 # Ticketing MCP Server
 
-An MCP server that gives AI agents access to the incident Ticketing API (the simulator in the repo root). Agents can look up and search tickets, and create or update them only after an operator approves.
+An MCP server that gives AI agents access to the incident Ticketing API (the simulator in the repo root). Agents can look up and search tickets, and create or update them.
 
 ## What was done
 
 - The API's 5 ticket endpoints are exposed as **4 tools**. "Get by id" and "list" are merged into one tool, `find_tickets`.
-- **Writes need approval.** `create_ticket` and `update_ticket` only return a preview unless `confirm=true` is passed. The agent is told to show the preview to the operator and ask for approval first.
+- **Writes are immediate.** `create_ticket` and `update_ticket` write as soon as they are called. This server has no approval step of its own: to make an operator approve them first, list them under `require_approval` in the calling application's MCP config (the backend supports this).
 - Every argument is checked (types, lengths, enums, ticket id pattern) before any API call is made. Unknown fields are rejected, and an update with no changes is rejected.
 - API responses are checked against typed models. If the API returns data in an unexpected shape, the tool returns a clear error.
 - API errors (not found, bad request, auth, unavailable) become readable tool errors. The API token never appears in errors or logs.
 - The HTTP client handles auth, timeouts and retries with backoff. Only GETs are retried, so a create is never sent twice.
 - Trace ids: the caller's `trace_id` from the request `_meta` is used, or a new one is generated. It is sent to the API as the `trace-id` header, ends up in the ticket's audit trail, and is returned in every tool result.
 - Logs are structured JSON, one line per tool call and per API call.
-- Tests: 31, covering the HTTP client, the service logic and in-memory MCP protocol calls.
+- Tests: 29, covering the HTTP client, the service logic and in-memory MCP protocol calls.
 
 ### Code layout
 
 | File | Responsibility |
 |---|---|
 | `server.py` | MCP layer: tool definitions, input rules, turning errors into tool errors |
-| `service.py` | Logic behind each tool, including the preview/confirm rule for writes |
+| `service.py` | Logic behind each tool,  |
 | `client.py` | HTTP client for the Ticketing API (auth, retries, timeouts, trace header) |
 | `models.py` | Pydantic models for tool inputs and outputs |
 | `config.py` | Settings from environment variables / `.env` |
@@ -32,10 +32,10 @@ An MCP server that gives AI agents access to the incident Ticketing API (the sim
 |---|---|---|---|
 | `find_tickets` | Get one ticket by id, or list tickets filtered by asset(s), status and severity. Read-only. | `GET /tickets/{id}`, `GET /tickets` | `{"ticket_id": "INC-1042"}` or `{"asset_ids": ["CMP-201", "M-501"], "status": "open"}` |
 | `search_similar_tickets` | Rank past tickets by how well they match a symptom or cause. Includes root cause and resolution notes. Read-only. | `GET /tickets/search` | `{"query": "discharge pressure anti-surge valve", "limit": 3}` |
-| `create_ticket` | Create an incident ticket. Returns a preview unless `confirm=true`. | `POST /tickets` | Preview: `{"draft": {"title": "Compressor C-201 discharge overpressure", "asset_id": "CMP-201", "severity": "critical", "priority": "P1"}}`. Commit: the same arguments plus `"confirm": true` |
-| `update_ticket` | Change status, priority, assignment or notes. The preview shows the current ticket and the pending changes. | `GET /tickets/{id}` (preview), `PATCH /tickets/{id}` (commit) | `{"ticket_id": "INC-1188", "changes": {"status": "resolved", "work_notes": "Bearing replaced"}}`, then the same arguments plus `"confirm": true` |
+| `create_ticket` | Create an incident ticket. | `POST /tickets` | `{"draft": {"title": "Compressor C-201 discharge overpressure", "asset_id": "CMP-201", "severity": "critical", "priority": "P1"}}` |
+| `update_ticket` | Change status, priority, assignment or notes. | `PATCH /tickets/{id}` | `{"ticket_id": "INC-1188", "changes": {"status": "resolved", "work_notes": "Bearing replaced"}}` |
 
-Typical flow: `search_similar_tickets` → `find_tickets` → `create_ticket` / `update_ticket` (preview → operator approves → confirm).
+Typical flow: `search_similar_tickets` → `find_tickets` → `create_ticket` / `update_ticket`.
 
 ## How to run
 

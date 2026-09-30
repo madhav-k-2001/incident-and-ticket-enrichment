@@ -29,9 +29,8 @@ INSTRUCTIONS = """\
 Incident ticketing tools.
 - Use `search_similar_tickets` to find historical cases and their resolutions.
 - Use `find_tickets` to fetch a ticket by id or list tickets by asset/status/severity.
-- `create_ticket` and `update_ticket` are two-step: call with confirm=false to get a
-  preview, show it to the operator, and only call again with confirm=true after the
-  operator explicitly approves.
+- `create_ticket` and `update_ticket` write immediately. The calling application decides
+  whether the operator must approve them first; if a call is rejected, do not retry it.
 Pass `trace_id` in the request `_meta` to correlate calls; otherwise one is generated.
 """
 
@@ -39,7 +38,6 @@ Pass `trace_id` in the request `_meta` to correlate calls; otherwise one is gene
 
 # Strict pattern: the id is interpolated into a URL path.
 TicketId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,32}$")]
-ConfirmFlag = Annotated[bool, Field(description="Set true ONLY after explicit operator approval.")]
 
 
 def create_server(settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None) -> MCPServer:
@@ -79,21 +77,20 @@ def create_server(settings: Settings, *, transport: httpx.AsyncBaseTransport | N
             return await service.search_similar_tickets(query, asset_id=asset_id, limit=limit)
 
     @mcp.tool(annotations=ToolAnnotations(title="Create ticket", read_only_hint=False, idempotent_hint=False))
-    async def create_ticket(ctx: Context, draft: TicketDraft, confirm: ConfirmFlag = False) -> WriteOutcome:
-        """Create an incident ticket. Returns a preview unless confirm=true."""
+    async def create_ticket(ctx: Context, draft: TicketDraft) -> WriteOutcome:
+        """Create an incident ticket."""
         async with tool_call(ctx, "create_ticket") as service:
-            return await service.create_ticket(draft, confirm=confirm)
+            return await service.create_ticket(draft)
 
     @mcp.tool(annotations=ToolAnnotations(title="Update ticket", read_only_hint=False, idempotent_hint=True))
     async def update_ticket(
         ctx: Context,
         ticket_id: Annotated[TicketId, Field(description="Ticket id, e.g. 'INC-1042'.")],
         changes: TicketChanges,
-        confirm: ConfirmFlag = False,
     ) -> WriteOutcome:
-        """Change status, priority, assignment or notes on a ticket. Returns a preview unless confirm=true."""
+        """Change status, priority, assignment or notes on a ticket."""
         async with tool_call(ctx, "update_ticket") as service:
-            return await service.update_ticket(ticket_id, changes, confirm=confirm)
+            return await service.update_ticket(ticket_id, changes)
 
     return mcp
 

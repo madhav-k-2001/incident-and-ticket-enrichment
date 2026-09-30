@@ -1,4 +1,4 @@
-"""Use cases exposed as MCP tools, including the write-confirmation policy.
+"""Use cases exposed as MCP tools.
 
 Composes raw API calls into task-oriented results and validates every payload
 against the typed contracts. Knows nothing about MCP or HTTP.
@@ -14,8 +14,6 @@ from ticketing_mcp.errors import UnexpectedResponseError
 from ticketing_mcp.models import Severity, Status, Ticket, TicketChanges, TicketDraft, TicketList, WriteOutcome
 
 logger = logging.getLogger(__name__)
-
-PREVIEW_MESSAGE = "Preview only - nothing was written. Ask the operator to approve, then call again with confirm=true."
 
 
 class TicketingService:
@@ -42,25 +40,18 @@ class TicketingService:
         data = await self._api.search_tickets(query=query, asset_id=asset_id)
         return _parse(TicketList, {"tickets": (data.get("results") or [])[:limit], "total": data.get("count")})
 
-    async def create_ticket(self, draft: TicketDraft, *, confirm: bool = False) -> WriteOutcome:
-        if not confirm:
-            return WriteOutcome(committed=False, message=PREVIEW_MESSAGE, pending_changes=draft.model_dump())
-
+    async def create_ticket(self, draft: TicketDraft) -> WriteOutcome:
         data = await self._api.create_ticket(draft.model_dump())
         ticket = _parse(Ticket, data.get("ticket"))
         logger.info("ticket_created", extra={"fields": {"ticket_id": ticket.ticket_id}})
-        return WriteOutcome(committed=True, message=f"Ticket {ticket.ticket_id} created.", ticket=ticket)
+        return WriteOutcome(message=f"Ticket {ticket.ticket_id} created.", ticket=ticket)
 
-    async def update_ticket(self, ticket_id: str, changes: TicketChanges, *, confirm: bool = False) -> WriteOutcome:
-        pending = changes.model_dump(exclude_none=True)
-        if not confirm:
-            current = _parse(Ticket, await self._api.get_ticket(ticket_id))
-            return WriteOutcome(committed=False, message=PREVIEW_MESSAGE, ticket=current, pending_changes=pending)
-
-        data = await self._api.update_ticket(ticket_id, pending)
+    async def update_ticket(self, ticket_id: str, changes: TicketChanges) -> WriteOutcome:
+        fields = changes.model_dump(exclude_none=True)
+        data = await self._api.update_ticket(ticket_id, fields)
         ticket = _parse(Ticket, data.get("ticket"))
-        logger.info("ticket_updated", extra={"fields": {"ticket_id": ticket_id, "changed": sorted(pending)}})
-        return WriteOutcome(committed=True, message=f"Ticket {ticket_id} updated.", ticket=ticket)
+        logger.info("ticket_updated", extra={"fields": {"ticket_id": ticket_id, "changed": sorted(fields)}})
+        return WriteOutcome(message=f"Ticket {ticket_id} updated.", ticket=ticket)
 
 
 # ---- Helpers ----------------------------------------------------------------

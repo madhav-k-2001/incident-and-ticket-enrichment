@@ -118,3 +118,36 @@ class DocumentListResponse(BaseModel):
     limit: int = Field(default=50)
     offset: int = Field(default=0)
     trace_id: Optional[str] = Field(default=None)
+
+
+class KnowledgeCitation(BaseModel):
+    """Authoritative document citation passage retrieved via RAG."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    chunk_id: str = Field(description="Unique chunk UUID or identifier")
+    document_id: str = Field(description="Parent document UUID or identifier")
+    filename: str = Field(description="Parent document filename (e.g. SOP-CMP-201-Discharge-Overpressure.md)")
+    doc_type: str = Field(description="Document category or type description")
+    section_title: Optional[str] = Field(default=None, description="Markdown section heading or procedure step")
+    content: str = Field(description="Extracted or expanded technical text passage")
+    similarity_score: float = Field(default=0.0, description="Normalized relevance score between 0.0 and 1.0")
+    citation: str = Field(
+        description="Standardized citation string, e.g. '[Source: SOP-CMP-201-Discharge-Overpressure.md, Section 2.1]'"
+    )
+
+
+class KnowledgeRetrievalResult(BaseModel):
+    """Response payload for knowledge base RAG retrieval queries."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    query: str = Field(description="User technical search query")
+    doc_category: str = Field(description="Category filter applied: all, sop, troubleshooting_guide, etc.")
+    citations: List[KnowledgeCitation] = Field(
+        default_factory=list,
+        description="Ranked list of authoritative document citations",
+    )
+    total_found: int = Field(default=0, description="Total matching passages found")
+    execution_time_ms: float = Field(default=0.0, description="Execution duration in milliseconds")
+    trace_id: Optional[str] = Field(default=None, description="Distributed trace identifier")

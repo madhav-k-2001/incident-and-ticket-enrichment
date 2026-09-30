@@ -61,6 +61,18 @@ from mcp_servers.schemas.tickets import (
     TicketUpdateResponse,
     TicketUpdateResult,
 )
+from mcp_servers.schemas.documents import (
+    ChunkContextResponse,
+    ChunkRetrievalResult,
+    DistanceMetric,
+    DocumentListResponse,
+    DocumentMetadata,
+    DocumentRetrievalResponse,
+    DocumentStatus,
+    KnowledgeCitation,
+    KnowledgeRetrievalResult,
+    SearchType,
+)
 
 __all__ = [
     "AlarmSortBy",
@@ -114,4 +126,14 @@ __all__ = [
     "TicketUpdateRequest",
     "TicketUpdateResponse",
     "TicketUpdateResult",
+    "ChunkContextResponse",
+    "ChunkRetrievalResult",
+    "DistanceMetric",
+    "DocumentListResponse",
+    "DocumentMetadata",
+    "DocumentRetrievalResponse",
+    "DocumentStatus",
+    "KnowledgeCitation",
+    "KnowledgeRetrievalResult",
+    "SearchType",
 ]

@@ -13,6 +13,11 @@ uv run pytest
 
 ## Tool approval
 
+`apps/backend/mcp_servers.sample.json` is a ready-made config for the servers in
+`mcp_servers/` (Alarm on `:8101`, Ticketing on `:8102`, as started by
+`mcp_servers/docker-compose.yml`). Use it with
+`MCP_SERVERS_CONFIG=./mcp_servers.sample.json`, run from `apps/backend`.
+
 In the MCP servers JSON (`MCP_SERVERS_CONFIG`), list the tools the agent must
 always get the user's approval for in a server's `require_approval`. Tools not
 listed run without asking. It works for every server type, including `hosted`.

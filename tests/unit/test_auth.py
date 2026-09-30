@@ -41,3 +41,22 @@ def test_any_configured_key_accepted(monkeypatch, key):
 
 def test_auth_disabled_when_no_keys(monkeypatch):
     assert make_client(monkeypatch, "").get("/protected").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "path", ["/chat", "/chat/stream", "/chat/approvals", "/chat/approvals/stream"]
+)
+def test_all_chat_routes_require_key(monkeypatch, path):
+    from apps.backend.app.main import app
+
+    monkeypatch.setattr(auth, "get_settings", lambda: Settings(API_KEYS="secret", _env_file=None))
+    # No lifespan (no `with`): the auth dependency must reject before any state is touched.
+    r = TestClient(app).post(path, json={})
+    assert r.status_code == 401
+
+
+def test_health_stays_open():
+    from apps.backend.app.main import app
+
+    route = next(r for r in app.routes if getattr(r, "path", "") == "/health")
+    assert not route.dependant.dependencies

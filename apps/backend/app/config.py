@@ -25,9 +25,16 @@ class Settings(BaseSettings):
     AGENT_MODEL: Optional[str] = None
     AGENT_MAX_TURNS: int = 10
 
+    # Seconds of silence on /chat/stream before a keep-alive comment is sent
+    # (stops proxies closing the connection during slow tool calls).
+    SSE_HEARTBEAT_SECONDS: float = 15.0
+
     # MCP servers: path to a JSON file or an inline JSON string following the
     # schema documented in apps.backend.services.load_mcp_service.MCPServerConfigService.
     MCP_SERVERS_CONFIG: Optional[str] = None
+
+    # How long a run paused for tool approval waits for the user's decision.
+    APPROVAL_TTL_SECONDS: float = 900.0
 
     # PostgreSQL (chat history). DATABASE_URL wins over the POSTGRES_* parts.
     DATABASE_URL: Optional[str] = None

@@ -1,0 +1,86 @@
+# Full stack: Alarm/Ticketing API simulator + both MCP servers (streamable-http).
+#
+#   docker compose -f mcp-servers/docker-compose.yml up --build
+#
+# MCP endpoints (host):
+#   Alarm MCP     -> http://localhost:8101/mcp
+#   Ticketing MCP -> http://localhost:8102/mcp
+#   Knowledge MCP -> http://localhost:8103/mcp  (needs the ingestion stack's pgvector db:
+#                    docker compose -f ingestion/docker-compose.yml up -d db)
+
+name: incident-enrichment-mcp
+
+services:
+  alarm-simulator:
+    build:
+      context: ../apps/alarms_and_ticket_simulation_api/
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  alarm-mcp:
+    build:
+      context: ./alarm-management
+    ports:
+      - "8101:8100"
+    environment:
+      ALARM_API_BASE_URL: ${ALARM_API_BASE_URL:-http://alarm-simulator:8000}
+      ALARM_API_TOKEN: ${ALARM_API_TOKEN:-demo-token}
+      ALARM_API_TIMEOUT_SECONDS: ${ALARM_API_TIMEOUT_SECONDS:-10}
+      ALARM_API_MAX_RETRIES: ${ALARM_API_MAX_RETRIES:-2}
+      ALARM_API_CLIENT_ID: alarm-mcp-server
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8100
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      alarm-simulator:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ticketing-mcp:
+    build:
+      context: ./ticketing
+    ports:
+      - "8102:8100"
+    environment:
+      TICKETING_API_BASE_URL: ${TICKETING_API_BASE_URL:-http://alarm-simulator:8000}
+      TICKETING_API_TOKEN: ${TICKETING_API_TOKEN:-demo-token}
+      TICKETING_TIMEOUT_SECONDS: ${TICKETING_TIMEOUT_SECONDS:-10}
+      TICKETING_MAX_RETRIES: ${TICKETING_MAX_RETRIES:-2}
+      TICKETING_RETRY_BACKOFF_SECONDS: ${TICKETING_RETRY_BACKOFF_SECONDS:-0.5}
+      TICKETING_CLIENT_ID: ticketing-mcp
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8100
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      alarm-simulator:
+        condition: service_healthy
+    restart: unless-stopped
+
+  knowledge-base-mcp:
+    build:
+      context: ./knowledge-base
+    ports:
+      - "8103:8100"
+    environment:
+      # Reaches the ingestion stack's Postgres through its published host port.
+      POSTGRES_HOST: ${KB_POSTGRES_HOST:-host.docker.internal}
+      POSTGRES_PORT: ${KB_POSTGRES_PORT:-5434}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ingestion_db}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2-preview}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8100
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

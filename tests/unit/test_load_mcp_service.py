@@ -7,7 +7,7 @@ from agents.mcp import (
     MCPServerStreamableHttp,
 )
 from agents.tool import HostedMCPTool
-from common.load_mcp_service import MCPServerConfigService
+from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 
 @pytest.fixture
@@ -123,3 +123,87 @@ def test_invalid_type(service):
     }
     with pytest.raises(ValueError, match="Unknown server type"):
         service.load(payload)
+
+
+def test_require_approval_list_becomes_always_policy(service):
+    payload = {
+        "servers": [
+            {
+                "name": "tickets",
+                "type": "streamable_http",
+                "params": {"url": "http://localhost:8002/mcp"},
+                "require_approval": ["create_ticket", "close_ticket", "create_ticket"],
+                "options": {"cache_tools_list": True},
+            }
+        ]
+    }
+    (server,) = service.load(payload)
+    assert server.cache_tools_list is True
+    assert server._needs_approval_policy == {"create_ticket": True, "close_ticket": True}
+
+
+def test_require_approval_defaults_to_none(service):
+    (server,) = service.load(
+        [{"name": "docs", "type": "sse", "params": {"url": "http://localhost:8001/sse"}}]
+    )
+    assert server._needs_approval_policy is False
+
+
+def test_require_approval_always_string_passes_through(service):
+    (server,) = service.load(
+        [
+            {
+                "name": "docs",
+                "type": "sse",
+                "params": {"url": "http://localhost:8001/sse"},
+                "require_approval": "always",
+            }
+        ]
+    )
+    assert server._needs_approval_policy is True
+
+
+def test_require_approval_hosted_goes_into_tool_config(service):
+    (tool,) = service.load(
+        [
+            {
+                "name": "weather",
+                "type": "hosted",
+                "params": {"server_url": "https://api.weather.com/mcp"},
+                "require_approval": ["delete_forecast"],
+            }
+        ]
+    )
+    assert tool.tool_config["require_approval"] == {
+        "always": {"tool_names": ["delete_forecast"]}
+    }
+
+
+def test_require_approval_does_not_mutate_input_spec(service):
+    spec = {
+        "name": "weather",
+        "type": "hosted",
+        "params": {"server_url": "https://api.weather.com/mcp"},
+        "require_approval": ["delete_forecast"],
+    }
+    service.load([spec])
+    assert "require_approval" not in spec["params"]
+
+
+@pytest.mark.parametrize("bad", [42, ["ok", 3], [""]])
+def test_require_approval_invalid_value(service, bad):
+    spec = {"name": "x", "type": "sse", "params": {"url": "http://x"}, "require_approval": bad}
+    with pytest.raises(ValueError, match="require_approval"):
+        service.load([spec])
+
+
+def test_require_approval_specified_twice_is_an_error(service):
+    spec = {
+        "name": "x",
+        "type": "sse",
+        "params": {"url": "http://x"},
+        "options": {"require_approval": "always"},
+        "require_approval": ["a"],
+    }
+    with pytest.raises(ValueError, match="once"):
+        service.load([spec])

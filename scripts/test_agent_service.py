@@ -20,12 +20,12 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from sqlalchemy.ext.asyncio import create_async_engine
 from agents import Model, ModelResponse, set_tracing_disabled
 from agents.usage import Usage
 from openai.types.responses import (
@@ -36,9 +36,15 @@ from openai.types.responses import (
     ResponseOutputText,
 )
 
-from apps.backend.models.chat_session_model import ChatMessage, SenderType
 from apps.backend.services.agent_service import AgentService
-from common.load_mcp_service import MCPServerConfigService
+from apps.backend.services.approval_service import (
+    ApprovalDecision,
+    ApprovalError,
+    PausedRun,
+    pending_approvals,
+)
+from apps.backend.services.chat_history_service import get_chat_session
+from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 set_tracing_disabled(True)
 
@@ -111,7 +117,7 @@ class FakeModel(Model):
         )
 
 
-def _stdio_servers():
+def _stdio_servers(**spec):
     return MCPServerConfigService().load(
         {
             "servers": [
@@ -120,38 +126,37 @@ def _stdio_servers():
                     "type": "stdio",
                     "params": {"command": sys.executable, "args": [SERVER_SCRIPT]},
                     "options": {"client_session_timeout_seconds": 30},
+                    **spec,
                 }
             ]
         }
     )
 
 
-def _msg(seq: int, sender: SenderType, text: str) -> ChatMessage:
-    return ChatMessage(
-        session_id=uuid4(), message_sequence=seq, sender_type=sender, message_content=text
-    )
+def _sqlite_engine():
+    """Offline stand-in for PostgreSQL: any SQLAlchemy async engine works."""
+    return create_async_engine("sqlite+aiosqlite:///:memory:")
 
 
-async def test_history_and_message_order():
+async def test_session_history_persisted_per_session_id():
     model = FakeModel()
     svc = AgentService(model=model)
-    history = [_msg(0, SenderType.user, "hello"), _msg(1, SenderType.bot, "hi there")]
-    result = await svc.run("what next?", history)
+    engine = _sqlite_engine()
+    try:
+        first = get_chat_session("a", engine, create_tables=True)
+        await svc.run("hello", first)
+        # A new session object with the same id reloads history from the database.
+        await svc.run("what next?", get_chat_session("a", engine))
+        await svc.run("other user", get_chat_session("b", engine))
+    finally:
+        await engine.dispose()
 
-    assert result.final_output == "no tools used", result.final_output
-    sent = model.calls[0]["input"]
-    assert [(i["role"], i["content"]) for i in sent] == [
-        ("user", "hello"),
-        ("assistant", "hi there"),
-        ("user", "what next?"),
-    ], sent
-
-
-async def test_dict_history_accepted():
-    model = FakeModel()
-    svc = AgentService(model=model)
-    await svc.run("b", [{"role": "user", "content": "a"}])
-    assert [i["content"] for i in model.calls[0]["input"]] == ["a", "b"]
+    turn2 = model.calls[1]["input"]
+    assert [i.get("content") for i in turn2 if i.get("role") == "user"] == [
+        "hello",
+        "what next?",
+    ], turn2
+    assert len(model.calls[2]["input"]) == 1, "session b saw session a's history"
 
 
 async def test_local_mcp_tool_called_and_cleaned_up():
@@ -184,6 +189,128 @@ async def test_stream_yields_events():
     assert getattr(servers[0], "session", None) is None, "server not cleaned up"
 
 
+async def _paused_run(engine, session_id="a"):
+    """Run until the `add` tool (which requires approval) pauses the agent."""
+    svc = AgentService(model=FakeModel())
+    session = get_chat_session(session_id, engine, create_tables=True)
+    result = await svc.run(
+        "add 2 and 3", session, _stdio_servers(require_approval=["add"])
+    )
+    return svc, _paused(result)
+
+
+def _paused(result) -> PausedRun:
+    return PausedRun(
+        state=result.to_state().to_string(),
+        approvals=pending_approvals(result.interruptions),
+    )
+
+
+async def test_tool_needing_approval_pauses_run():
+    engine = _sqlite_engine()
+    try:
+        _, paused = await _paused_run(engine)
+    finally:
+        await engine.dispose()
+    (approval,) = paused.approvals
+    assert (approval.tool_name, approval.server_name) == ("add", "sample")
+    assert approval.arguments == {"a": 2, "b": 3}
+
+
+async def test_tool_not_listed_runs_without_approval():
+    servers = _stdio_servers(require_approval=["something_else"])
+    result = await AgentService(model=FakeModel()).run("add", None, servers)
+    assert not result.interruptions and "5" in result.final_output
+
+
+async def test_resume_approved_runs_tool_and_keeps_history_clean():
+    engine = _sqlite_engine()
+    try:
+        svc, paused = await _paused_run(engine)
+        approval = paused.approvals[0]
+        servers = _stdio_servers(require_approval=["add"])
+        result = await svc.resume(
+            paused,
+            [ApprovalDecision(approval.id, True)],
+            get_chat_session("a", engine),
+            servers,
+        )
+        items = await get_chat_session("a", engine).get_items()
+    finally:
+        await engine.dispose()
+    assert "5" in result.final_output and not result.interruptions
+    assert [i.get("type") or i.get("role") for i in items] == [
+        "user", "function_call", "function_call_output", "message",
+    ], items
+    assert getattr(servers[0], "session", None) is None, "server not cleaned up"
+
+
+async def test_resume_rejected_tells_model_and_skips_tool():
+    engine = _sqlite_engine()
+    try:
+        svc, paused = await _paused_run(engine)
+        approval = paused.approvals[0]
+        result = await svc.resume(
+            paused,
+            [ApprovalDecision(approval.id, False, "not now")],
+            get_chat_session("a", engine),
+            _stdio_servers(require_approval=["add"]),
+        )
+    finally:
+        await engine.dispose()
+    assert result.final_output == "tool said: not now", result.final_output
+
+
+async def test_resume_rejects_mismatched_decisions():
+    engine = _sqlite_engine()
+    try:
+        svc, paused = await _paused_run(engine)
+        approval = paused.approvals[0]
+        for decisions in (
+            [],
+            [ApprovalDecision("nope", True)],
+            [ApprovalDecision(approval.id, True)] * 2,
+        ):
+            try:
+                await svc.resume(
+                    paused, decisions, None, _stdio_servers(require_approval=["add"])
+                )
+            except ApprovalError:
+                continue
+            raise AssertionError(f"expected ApprovalError for {decisions}")
+    finally:
+        await engine.dispose()
+
+
+async def test_stream_ends_with_approval_event():
+    servers = _stdio_servers(require_approval=["add"])
+    events = [e async for e in AgentService(model=FakeModel()).run_stream("add", None, servers)]
+    last = events[-1]
+    assert isinstance(last, PausedRun), last
+    assert last.approvals[0].tool_name == "add" and last.state
+
+
+async def test_resume_stream_continues_after_approval():
+    engine = _sqlite_engine()
+    try:
+        svc, paused = await _paused_run(engine)
+        servers = _stdio_servers(require_approval=["add"])
+        events = [
+            e
+            async for e in svc.resume_stream(
+                paused,
+                [ApprovalDecision(paused.approvals[0].id, True)],
+                get_chat_session("a", engine),
+                servers,
+            )
+        ]
+    finally:
+        await engine.dispose()
+    names = [getattr(e, "name", None) for e in events]
+    assert "tool_output" in names and not any(isinstance(e, PausedRun) for e in events)
+    assert getattr(servers[0], "session", None) is None, "server not cleaned up"
+
+
 async def test_empty_message_rejected():
     for bad in ("", "   "):
         try:
@@ -194,11 +321,17 @@ async def test_empty_message_rejected():
 
 
 TESTS = [
-    test_history_and_message_order,
-    test_dict_history_accepted,
+    test_session_history_persisted_per_session_id,
     test_local_mcp_tool_called_and_cleaned_up,
     test_hosted_mcp_tool_passed_as_tool,
     test_stream_yields_events,
+    test_tool_needing_approval_pauses_run,
+    test_tool_not_listed_runs_without_approval,
+    test_resume_approved_runs_tool_and_keeps_history_clean,
+    test_resume_rejected_tells_model_and_skips_tool,
+    test_resume_rejects_mismatched_decisions,
+    test_stream_ends_with_approval_event,
+    test_resume_stream_continues_after_approval,
     test_empty_message_rejected,
 ]
 
@@ -207,19 +340,18 @@ async def run_live(model: str) -> int:
     """Real-model smoke test: history recall + local MCP tool call."""
     from dotenv import load_dotenv
 
-    load_dotenv(ROOT / ".env")
+    load_dotenv(ROOT / "apps" / "backend" / ".env")
     set_tracing_disabled(True)
     svc = AgentService(
         model=model,
         instructions="Be terse. Use the add tool for any arithmetic.",
         max_turns=5,
     )
-    history = [
-        _msg(0, SenderType.user, "My name is Priya."),
-        _msg(1, SenderType.bot, "Nice to meet you, Priya."),
-    ]
-
-    r1 = await svc.run("What is my name? Answer in one word.", history)
+    engine = _sqlite_engine()
+    session = get_chat_session("live", engine, create_tables=True)
+    await svc.run("My name is Priya.", session)
+    r1 = await svc.run("What is my name? Answer in one word.", session)
+    await engine.dispose()
     print(f"[history] {r1.final_output!r}")
     ok1 = "priya" in r1.final_output.lower()
 

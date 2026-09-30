@@ -1,0 +1,11 @@
+**/.venv
+**/__pycache__
+**/.pytest_cache
+.git
+.env
+.env.*
+ingestion
+tests
+docs
+test_data
+use_case_docs

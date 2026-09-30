@@ -71,7 +71,7 @@ Start the ingestion stack first, so the pgvector database exists and has documen
 |---|---|---|
 | stdio (local agent / IDE) | `cd mcp_servers/knowledge-base && uv run knowledge-base-mcp` | stdio |
 | HTTP (local) | `MCP_TRANSPORT=streamable-http MCP_PORT=8103 uv run knowledge-base-mcp` | `http://localhost:8103/mcp` |
-| Docker (with the other MCP servers) | `docker compose -f mcp_servers/docker-compose.yml up --build` (from the repo root) | `http://localhost:8103/mcp` |
+| Docker (with the other MCP servers) | `docker compose up --build` (from the repo root) | `http://localhost:8103/mcp` |
 | Tests | `uv run --group dev pytest -q` | – |
 | Integration tests | `KB_INTEGRATION=1 uv run --group dev pytest -q`. Needs a Postgres with pgvector at `POSTGRES_*`; it creates and drops a separate `kb_mcp_test` database. | – |
 

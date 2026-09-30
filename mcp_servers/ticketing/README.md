@@ -45,7 +45,7 @@ Start the simulator first (from the repo root): `uv run python simulator_app.py`
 |---|---|---|
 | stdio (local agent / IDE) | `cd mcp-servers/ticketing && TICKETING_API_TOKEN=demo-token uv run ticketing-mcp` | stdio |
 | HTTP (local) | `MCP_TRANSPORT=streamable-http TICKETING_API_TOKEN=demo-token uv run ticketing-mcp` | `http://localhost:8100/mcp` |
-| Docker (simulator + both MCP servers) | `docker compose -f mcp-servers/docker-compose.yml up --build` (from repo root) | `http://localhost:8102/mcp` |
+| Docker (simulator + both MCP servers) | `docker compose up --build` (from repo root) | `http://localhost:8102/mcp` |
 | Tests | `uv run --group dev pytest -q` | – |
 
 If the alarm MCP server is also running locally over HTTP, it uses port 8100 too. Set `MCP_PORT=8200` (or any free port) for one of them.

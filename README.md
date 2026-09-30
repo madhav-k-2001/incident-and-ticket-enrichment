@@ -47,7 +47,7 @@ If `API_KEYS` is empty, auth is disabled and a warning is logged on startup.
 
 `apps/backend/mcp_servers.sample.json` is a ready-made config for the servers in
 `mcp_servers/` (Alarm on `:8101`, Ticketing on `:8102`, Knowledge Base on `:8103`, as started by
-`mcp_servers/docker-compose.yml`). Use it with
+`docker-compose.yml`). Use it with
 `MCP_SERVERS_CONFIG=./mcp_servers.sample.json`, run from `apps/backend`.
 
 In the MCP servers JSON (`MCP_SERVERS_CONFIG`), list the tools the agent must

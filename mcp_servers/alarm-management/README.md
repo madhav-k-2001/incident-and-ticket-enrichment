@@ -44,7 +44,7 @@ Start the simulator first (from the repo root): `uv run python simulator_app.py`
 |---|---|---|
 | stdio (local agent / IDE) | `cd mcp-servers/alarm-management && ALARM_API_TOKEN=demo-token uv run alarm-mcp` | stdio |
 | HTTP (local) | `MCP_TRANSPORT=streamable-http ALARM_API_TOKEN=demo-token uv run alarm-mcp` | `http://localhost:8100/mcp` |
-| Docker (simulator + both MCP servers) | `docker compose -f mcp-servers/docker-compose.yml up --build` (from repo root) | `http://localhost:8101/mcp` |
+| Docker (simulator + both MCP servers) | `docker compose up --build` (from repo root) | `http://localhost:8101/mcp` |
 | Tests | `uv run --group dev pytest -q` | – |
 
 ### Configuration (environment variables or `.env`)

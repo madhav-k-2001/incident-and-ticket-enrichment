@@ -6,9 +6,29 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import quote_plus
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _to_asyncpg_url(url: str) -> str:
+    """Make a standard Postgres URL (e.g. Neon's) usable by the asyncpg driver.
+
+    Accepts ``postgres://`` / ``postgresql://`` / ``postgresql+psycopg://`` and
+    converts libpq-style query params: ``sslmode`` becomes asyncpg's ``ssl`` and
+    libpq-only params such as ``channel_binding`` are dropped.
+    """
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    if scheme in ("postgres", "postgresql") or scheme.startswith("postgresql+"):
+        scheme = "postgresql+asyncpg"
+    query = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        if key == "sslmode":
+            query.append(("ssl", value))
+        elif key not in ("channel_binding",):
+            query.append((key, value))
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 class Settings(BaseSettings):
@@ -43,6 +63,7 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "copilot_db"
+    POSTGRES_SSLMODE: Optional[str] = None
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_TIMEOUT: float = 30.0
@@ -62,11 +83,14 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         if self.DATABASE_URL:
-            return self.DATABASE_URL
-        return (
+            return _to_asyncpg_url(self.DATABASE_URL)
+        url = (
             f"postgresql+asyncpg://{quote_plus(self.POSTGRES_USER)}:{quote_plus(self.POSTGRES_PASSWORD)}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+        if self.POSTGRES_SSLMODE:
+            url += f"?sslmode={self.POSTGRES_SSLMODE}"
+        return _to_asyncpg_url(url)
 
     @property
     def api_keys(self) -> list[str]:

@@ -1,0 +1,32 @@
+{
+  "servers": [
+    {
+      "name": "alarm_management",
+      "type": "streamable_http",
+      "params": {
+        "url": "http://alarm-mcp:8100/mcp"
+      },
+      "options": {
+        "cache_tools_list": true
+      }
+    },
+    {
+      "name": "ticketing",
+      "type": "streamable_http",
+      "params": {
+        "url": "http://ticketing-mcp:8100/mcp"
+      },
+      "require_approval": ["create_ticket", "update_ticket"]
+    },
+    {
+      "name": "knowledge_base",
+      "type": "streamable_http",
+      "params": {
+        "url": "http://knowledge-base-mcp:8100/mcp"
+      },
+      "options": {
+        "cache_tools_list": true
+      }
+    }
+  ]
+}

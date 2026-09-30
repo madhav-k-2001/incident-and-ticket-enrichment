@@ -20,6 +20,11 @@ const API_ROOT = new URL("../", document.baseURI);
 const PLACEHOLDER = "Ask about an alarm, an asset or a ticket";
 const ACRONYMS = { id: "ID", ids: "IDs", sop: "SOP", url: "URL", kb: "KB" };
 
+const ICON_USER =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+const ICON_ASSISTANT =
+  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 6l-3.4 5.4L22 12l-5.4.6L20 18l-6.1-2.1L12 22l-1.9-6.1L4 18l3.4-5.4L2 12l5.4-.6L4 6l6.1 2.1z"/></svg>';
+
 const els = {
   log: document.getElementById("log"),
   inner: document.getElementById("log-inner"),
@@ -578,6 +583,7 @@ function createTurnView(turn) {
     h(
       "div",
       { class: "turn-gutter" },
+      h("span", { class: `avatar avatar-${turn.role}`, "aria-hidden": "true", html: isUser ? ICON_USER : ICON_ASSISTANT }),
       h("span", { class: "turn-role" }, isUser ? "You" : "Assistant"),
       h("time", { class: "turn-time", datetime: new Date(turn.time).toISOString() }, timeFormat.format(turn.time))
     ),
@@ -587,7 +593,12 @@ function createTurnView(turn) {
   if (isUser) {
     body.append(h("p", { class: "user-text" }, turn.text));
   } else {
-    view.working = h("p", { class: "working", hidden: true }, "Working");
+    view.working = h(
+      "p",
+      { class: "working", hidden: true },
+      h("img", { src: "assets/thinking.gif", alt: "", width: "36", height: "36" }),
+      "Thinking"
+    );
     body.append(view.working);
   }
   return view;

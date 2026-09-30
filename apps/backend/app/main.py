@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request, Response, status
-from pydantic import BaseModel, Field
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from agents.tool import HostedMCPTool
@@ -27,6 +28,7 @@ from agents.tool import HostedMCPTool
 from apps.backend.app.config import get_settings
 from apps.backend.services.agent_service import AgentService
 from apps.backend.services.chat_history_service import create_engine, get_chat_session
+from apps.backend.services.chat_stream_service import SSE_HEADERS, sse_chat_stream
 from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 settings = get_settings()
@@ -71,6 +73,13 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
 
+    @field_validator("message")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("message must not be blank")
+        return value
+
 
 class ChatResponse(BaseModel):
     session_id: str
@@ -88,6 +97,36 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
         body.message, session, mcp_servers=state.mcp_servers
     )
     return ChatResponse(session_id=body.session_id, reply=str(result.final_output))
+
+
+@app.post(
+    "/chat/stream",
+    tags=["chat"],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
+    """One chat turn as a Server-Sent Events stream.
+
+    Same request as ``POST /chat``. Emits ``run_started``, then ``text_delta`` /
+    ``reasoning_delta`` / ``tool_call`` / ``tool_output`` / ``message`` events as
+    the agent works, and finally ``done`` (or ``error``). See
+    ``docs/chat-stream-protocol.md``. Disconnecting cancels the run.
+    """
+    state = request.app.state
+    session = get_chat_session(
+        body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
+    )
+    events = state.agent_service.run_stream(
+        body.message, session, mcp_servers=state.mcp_servers
+    )
+    return StreamingResponse(
+        sse_chat_stream(
+            body.session_id, events, heartbeat_seconds=settings.SSE_HEARTBEAT_SECONDS
+        ),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
 
 
 @app.get("/health", tags=["health"])

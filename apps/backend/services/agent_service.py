@@ -79,7 +79,8 @@ class AgentService:
     ) -> AsyncIterator[StreamEvent]:
         """Run the agent and yield SDK stream events as they arrive.
 
-        MCP servers stay connected until the stream is exhausted or closed.
+        MCP servers stay connected until the stream is exhausted or closed; closing
+        it early cancels the underlying run.
         """
         self._check_message(user_message)
         async with AsyncExitStack() as stack:
@@ -87,8 +88,13 @@ class AgentService:
             streamed = Runner.run_streamed(
                 agent, user_message, session=session, max_turns=self.max_turns
             )
-            async for event in streamed.stream_events():
-                yield event
+            try:
+                async for event in streamed.stream_events():
+                    yield event
+            finally:
+                # No-op after normal completion; stops the model run if the
+                # consumer stopped early (e.g. the HTTP client disconnected).
+                streamed.cancel()
 
     # ------------------------------------------------------------------
     # Helpers

@@ -1,7 +1,10 @@
 [project]
 name = "incident-and-ticket-enrichment"
 version = "0.1.0"
-description = "Add your description here"
+description = "Incident & Ticket Enrichment Copilot"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "openai-agents[sqlalchemy]>=0.22.3",
+    "sqlalchemy[asyncio]>=2.0",
+]

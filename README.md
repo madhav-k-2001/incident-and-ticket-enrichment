@@ -14,7 +14,7 @@ uv run pytest
 ## Tool approval
 
 `apps/backend/mcp_servers.sample.json` is a ready-made config for the servers in
-`mcp_servers/` (Alarm on `:8101`, Ticketing on `:8102`, as started by
+`mcp_servers/` (Alarm on `:8101`, Ticketing on `:8102`, Knowledge Base on `:8103`, as started by
 `mcp_servers/docker-compose.yml`). Use it with
 `MCP_SERVERS_CONFIG=./mcp_servers.sample.json`, run from `apps/backend`.
 

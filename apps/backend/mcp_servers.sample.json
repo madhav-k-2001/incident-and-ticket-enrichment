@@ -17,6 +17,16 @@
         "url": "http://localhost:8102/mcp"
       },
       "require_approval": ["create_ticket", "update_ticket"]
+    },
+    {
+      "name": "knowledge_base",
+      "type": "streamable_http",
+      "params": {
+        "url": "http://localhost:8103/mcp"
+      },
+      "options": {
+        "cache_tools_list": true
+      }
     }
   ]
 }

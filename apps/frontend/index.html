@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Alarm Investigation and Ticketing</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='2' fill='%23F0B429'/%3E%3Crect x='8' y='13' width='16' height='6' fill='%232B1D00'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <div class="wrap bar-inner">
+      <h1 class="title">Alarm Investigation and Ticketing</h1>
+      <div class="bar-actions">
+        <span class="session" id="session-label"></span>
+        <button type="button" class="btn btn-quiet" id="key-button" hidden>API key</button>
+        <button type="button" class="btn btn-secondary" id="new-session">New session</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="log" id="log" aria-label="Conversation">
+    <div class="wrap log-inner" id="log-inner">
+      <section class="empty" id="empty" aria-labelledby="empty-title">
+        <h2 class="empty-title" id="empty-title">Start with an alarm, an asset or a ticket.</h2>
+        <p class="empty-text">Ask about active alarms, troubleshooting procedures or past incidents. Creating or changing a ticket waits for your approval.</p>
+        <ul class="examples">
+          <li><button type="button" class="example">Prepare an incident for the highest-priority active alarm in EastRefinery</button></li>
+          <li><button type="button" class="example">Find similar historical tickets for the CMP-201 compressor alarm</button></li>
+          <li><button type="button" class="example">Show open tickets linked to assets correlated with BFP-101</button></li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <form class="composer" id="composer" novalidate>
+    <div class="wrap">
+      <div class="field">
+        <label for="message" class="sr-only">Message</label>
+        <textarea id="message" name="message" rows="1" maxlength="4000" autocomplete="off"
+          placeholder="Ask about an alarm, an asset or a ticket" aria-describedby="count"></textarea>
+        <button type="submit" class="btn btn-primary send" id="send" disabled>Send</button>
+      </div>
+      <div class="composer-meta">
+        <p class="hint" id="hint">Enter to send, Shift+Enter for a new line</p>
+        <p class="count" id="count">0 / 4,000</p>
+      </div>
+    </div>
+  </form>
+
+  <dialog class="dialog" id="key-dialog" aria-labelledby="key-title">
+    <form id="key-form">
+      <h2 class="dialog-title" id="key-title">API key</h2>
+      <p class="dialog-text" id="key-text"></p>
+      <label class="dialog-label" for="key-input">Key</label>
+      <input class="dialog-input" id="key-input" type="password" autocomplete="off" spellcheck="false">
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="key-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save key</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p class="sr-only" id="announcer" aria-live="polite"></p>
+</body>
+</html>

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Literal, Optional
 
 from dotenv import load_dotenv
@@ -19,7 +20,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
@@ -42,6 +44,9 @@ from apps.backend.services.chat_stream_service import SSE_HEADERS, sse_chat_stre
 from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 settings = get_settings()
+
+# Static chat UI (apps/frontend), served at /ui so it shares the API's origin.
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 logging.basicConfig(
     level=settings.LOG_LEVEL,
@@ -306,3 +311,12 @@ async def health(request: Request, response: Response) -> dict:
         },
         "mcp_servers": mcp_servers,
     }
+
+
+if FRONTEND_DIR.is_dir():
+
+    @app.get("/", include_in_schema=False)
+    async def index() -> RedirectResponse:
+        return RedirectResponse("/ui/")
+
+    app.mount("/ui", StaticFiles(directory=FRONTEND_DIR, html=True), name="ui")

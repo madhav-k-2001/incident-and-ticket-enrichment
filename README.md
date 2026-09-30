@@ -11,6 +11,24 @@ uv run uvicorn apps.backend.app.main:app --app-dir ../.. --reload
 uv run pytest
 ```
 
+## Frontend
+
+`apps/frontend` is the chat UI, **Alarm Investigation and Ticketing**: plain HTML, CSS and
+JavaScript modules with no build step. The backend serves it at `/ui/` (and `/` redirects there),
+so once the backend is running, open <http://localhost:8000/>.
+
+- Streams replies from `POST /chat/stream` and shows each tool call. Expand a call to see its input and result.
+- When a tool needs approval (for example `create_ticket`), the run pauses and shows what the tool
+  will do. Approve or reject each call (a rejection can include a reason for the assistant), and the
+  same reply continues through `POST /chat/approvals/stream`.
+- Messages are limited to 4,000 characters. **Stop** cancels a reply, and **New session** starts a
+  new conversation with a new session ID.
+- If `API_KEYS` is set, the UI asks for a key the first time the backend returns 401 and keeps it in
+  the browser's local storage.
+- The current conversation is kept in local storage, so reloading the page does not lose it.
+
+The wire protocol is described in [docs/chat-stream-protocol.md](docs/chat-stream-protocol.md).
+
 ## Authentication
 
 Every `/chat*` endpoint (`/chat`, `/chat/stream`, `/chat/approvals`, `/chat/approvals/stream`) requires an API key in the `X-API-Key` header. Set the accepted

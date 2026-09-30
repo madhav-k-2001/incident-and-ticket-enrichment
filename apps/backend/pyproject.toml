@@ -1,8 +1,7 @@
 [project]
-name = "incident-and-ticket-enrichment"
+name = "incident-and-ticket-enrichment-backend"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Incident & Ticket Enrichment Copilot backend"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
@@ -18,7 +17,9 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+# Imports are rooted at the repo root (apps.backend...), two levels up.
+pythonpath = ["../.."]
+testpaths = ["../../tests"]
 asyncio_mode = "auto"
 
 [dependency-groups]

@@ -204,7 +204,7 @@ async def run_live(model: str) -> int:
     """Real-model smoke test: history recall + local MCP tool call."""
     from dotenv import load_dotenv
 
-    load_dotenv(ROOT / ".env")
+    load_dotenv(ROOT / "apps" / "backend" / ".env")
     set_tracing_disabled(True)
     svc = AgentService(
         model=model,

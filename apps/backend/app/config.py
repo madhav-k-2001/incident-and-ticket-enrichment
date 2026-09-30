@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     LOG_LEVEL: str = "INFO"
 
+    # API auth: comma-separated list of accepted keys, sent as ``X-API-Key``.
+    # Leave empty to disable authentication (local development only).
+    API_KEYS: str = ""
+
     # Agent
     AGENT_NAME: str = "Assistant"
     AGENT_MODEL: Optional[str] = None
@@ -56,6 +60,10 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{quote_plus(self.POSTGRES_USER)}:{quote_plus(self.POSTGRES_PASSWORD)}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    @property
+    def api_keys(self) -> list[str]:
+        return [k.strip() for k in self.API_KEYS.split(",") if k.strip()]
 
     def mcp_servers_spec(self) -> dict[str, Any]:
         """Return the parsed MCP server spec, or an empty spec if none is set."""

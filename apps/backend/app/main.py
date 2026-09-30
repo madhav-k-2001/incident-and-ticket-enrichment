@@ -18,12 +18,13 @@ from dotenv import load_dotenv
 # The Agents SDK reads os.environ directly (e.g. OPENAI_API_KEY), so load .env first.
 load_dotenv()
 
-from fastapi import FastAPI, Request, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from agents.tool import HostedMCPTool
 
+from apps.backend.app.auth import require_api_key
 from apps.backend.app.config import get_settings
 from apps.backend.services.agent_service import AgentService
 from apps.backend.services.chat_history_service import create_engine, get_chat_session
@@ -40,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if not settings.api_keys:
+        logger.warning("API_KEYS is not set: API key authentication is DISABLED")
+
     engine = create_engine(settings)
 
     # MCP servers are only instantiated here; AgentService connects them per run.
@@ -77,9 +81,9 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-@app.post("/chat", tags=["chat"])
+@app.post("/chat", tags=["chat"], dependencies=[Depends(require_api_key)])
 async def chat(body: ChatRequest, request: Request) -> ChatResponse:
-    """One chat turn; history for ``session_id`` is loaded and saved in PostgreSQL."""
+    """One chat turn (requires ``X-API-Key``); history for ``session_id`` is loaded and saved in PostgreSQL."""
     state = request.app.state
     session = get_chat_session(
         body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES

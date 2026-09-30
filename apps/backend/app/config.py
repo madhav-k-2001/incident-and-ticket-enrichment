@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # schema documented in apps.backend.services.load_mcp_service.MCPServerConfigService.
     MCP_SERVERS_CONFIG: Optional[str] = None
 
+    # How long a run paused for tool approval waits for the user's decision.
+    APPROVAL_TTL_SECONDS: float = 900.0
+
     # PostgreSQL (chat history). DATABASE_URL wins over the POSTGRES_* parts.
     DATABASE_URL: Optional[str] = None
     POSTGRES_USER: str = "postgres"

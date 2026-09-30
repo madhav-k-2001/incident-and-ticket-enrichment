@@ -51,9 +51,17 @@ class MCPServerConfigService:
                 "type": "object",
                 "description": "Connection parameters specific to the server type"
               },
+              "require_approval": {
+                "description": "Tools that need explicit user approval before they run. A list of tool names (recommended), or 'always' / 'never' for every tool on the server, or the SDK's {'always': {'tool_names': [...]}, 'never': {'tool_names': [...]}} form.",
+                "oneOf": [
+                  {"type": "array", "items": {"type": "string"}},
+                  {"type": "string", "enum": ["always", "never"]},
+                  {"type": "object"}
+                ]
+              },
               "options": {
                 "type": "object",
-                "description": "Optional kwargs passed to the server constructor (e.g. cache_tools_list, require_approval)"
+                "description": "Optional kwargs passed to the server constructor (e.g. cache_tools_list)"
               }
             }
           }
@@ -86,7 +94,8 @@ class MCPServerConfigService:
           "params": {
             "command": "npx",
             "args": ["-y", "@modelcontextprotocol/server-filesystem", "./data"]
-          }
+          },
+          "require_approval": ["write_file", "move_file"]
         },
         {
           "name": "weather",
@@ -98,6 +107,12 @@ class MCPServerConfigService:
       ]
     }
     ```
+
+    Tool approval: list the tools that must always be confirmed by the user in
+    ``require_approval``. The agent pauses before running one of them and the
+    call only proceeds once the user approves it (see ``AgentService.resume``).
+    Tools that are not listed run without asking. This works for every server
+    type, including ``hosted`` ones.
     """
 
     def load(self, config: Union[str, Dict[str, Any], List[Dict[str, Any]]]) -> List[MCPAnyServer]:
@@ -135,8 +150,19 @@ class MCPServerConfigService:
         """
         name: str = spec["name"]
         server_type: str = spec["type"].lower()
-        params: Dict[str, Any] = spec.get("params", {})
-        options: Dict[str, Any] = spec.get("options", {})
+        params: Dict[str, Any] = dict(spec.get("params", {}))
+        options: Dict[str, Any] = dict(spec.get("options", {}))
+
+        if "require_approval" in spec:
+            if "require_approval" in options or "require_approval" in params:
+                raise ValueError(
+                    f"Server '{name}': set 'require_approval' once, at the top level of the "
+                    f"server spec, not also in 'options' or 'params'."
+                )
+            approval = _normalize_require_approval(spec["require_approval"], name)
+            # Local servers take it as a constructor kwarg; hosted servers send it to the
+            # provider inside the tool config.
+            (params if server_type == "hosted" else options)["require_approval"] = approval
 
         if server_type == "streamable_http":
             return MCPServerStreamableHttp(name=name, params=params, **options)
@@ -165,6 +191,27 @@ class MCPServerConfigService:
                 f"Unknown server type '{server_type}'. "
                 f"Supported types are: 'streamable_http', 'sse', 'stdio', 'hosted'."
             )
+
+
+def _normalize_require_approval(value: Any, server_name: str) -> Any:
+    """Turn the config's ``require_approval`` into the form the SDK understands.
+
+    A list of tool names becomes ``{"always": {"tool_names": [...]}}``; every
+    other tool on the server keeps running without approval. ``"always"`` /
+    ``"never"`` and the SDK's dict form pass through (the SDK validates them).
+    """
+    if isinstance(value, list):
+        if not all(isinstance(t, str) and t for t in value):
+            raise ValueError(
+                f"Server '{server_name}': 'require_approval' must be a list of tool name strings."
+            )
+        return {"always": {"tool_names": list(dict.fromkeys(value))}}
+    if isinstance(value, (str, dict)):
+        return value
+    raise ValueError(
+        f"Server '{server_name}': 'require_approval' must be a list of tool names, "
+        f"'always', 'never' or an object, got {type(value).__name__}."
+    )
 
 
 # Alias for backward compatibility or concise usage

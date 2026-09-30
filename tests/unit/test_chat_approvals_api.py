@@ -100,3 +100,69 @@ def test_approval_cannot_be_replayed(client):
     approvals = _chat(client).json()["approvals"]
     assert _decide(client, approvals, True).status_code == 200
     assert _decide(client, approvals, True).status_code == 404
+
+
+def _sse(response):
+    """Parse an SSE body into [(event, data)]."""
+    frames = []
+    for frame in response.text.split("\n\n"):
+        lines = [l for l in frame.split("\n") if l and not l.startswith(":")]
+        if lines:
+            frames.append((lines[0].removeprefix("event: "), json.loads(lines[1][6:])))
+    return frames
+
+
+def _stream_chat(client, session="s1", message="add 2 and 3"):
+    return client.post("/chat/stream", json={"session_id": session, "message": message})
+
+
+def _stream_decide(client, approvals, approved, session="s1"):
+    decisions = [{"approval_id": a["approval_id"], "approved": approved} for a in approvals]
+    return client.post(
+        "/chat/approvals/stream", json={"session_id": session, "decisions": decisions}
+    )
+
+
+def test_stream_pauses_with_approval_required_then_resumes_streaming(client):
+    frames = _sse(_stream_chat(client))
+    names = [n for n, _ in frames]
+    assert names[0] == "run_started" and names[-1] == "approval_required"
+    assert "done" not in names and "tool_output" not in names
+    approvals = frames[-1][1]["approvals"]
+    assert approvals[0]["tool_name"] == "add" and approvals[0]["server_name"] == "sample"
+
+    resumed = _sse(_stream_decide(client, approvals, True))
+    names = [n for n, _ in resumed]
+    assert "tool_output" in names and names[-1] == "done"
+    assert "5" in resumed[-1][1]["final_output"]
+
+
+def test_stream_can_pause_and_be_answered_via_json_endpoint(client):
+    approvals = _sse(_stream_chat(client))[-1][1]["approvals"]
+    done = _decide(client, approvals, True).json()
+    assert done["status"] == "completed" and "5" in done["reply"]
+
+
+def test_stream_blocked_while_approval_pending(client):
+    _stream_chat(client)
+    assert _stream_chat(client, message="hello").status_code == 409
+
+
+def test_stream_bad_decision_is_422_and_keeps_the_pending_run(client):
+    approvals = _sse(_stream_chat(client))[-1][1]["approvals"]
+    bad = _stream_decide(client, [{"approval_id": "nope"}], True)
+    assert bad.status_code == 422
+    assert _sse(_stream_decide(client, approvals, True))[-1][0] == "done"
+
+
+def test_approval_is_consumed_even_if_the_resumed_run_fails(client, monkeypatch):
+    """A tool may already have run when a later step fails, so never offer it again."""
+    approvals = _chat(client).json()["approvals"]
+
+    async def boom(*_a, **_kw):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(client.app.state.agent_service, "resume", boom)
+    with pytest.raises(RuntimeError):
+        _decide(client, approvals, True)
+    assert _decide(client, approvals, True).status_code == 404

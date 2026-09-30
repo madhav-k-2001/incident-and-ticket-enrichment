@@ -61,6 +61,14 @@ is passed to the model, which can then explain or try another route:
 ```
 
 The response has the same shape as `/chat`, so it may pause again on a further
-tool. While a session is waiting, `/chat` for it returns `409`; an unanswered
-approval expires after `APPROVAL_TTL_SECONDS`. Paused runs are kept in memory,
-so they are lost on restart and not shared between workers.
+tool. While a session is waiting, `/chat` for it returns `409`; decisions that
+don't cover exactly the pending approvals get `422` and can be retried; an
+unanswered approval expires after `APPROVAL_TTL_SECONDS` (`404` afterwards).
+
+Streaming works the same way: `/chat/stream` ends with an `approval_required`
+event instead of `done`, and `POST /chat/approvals/stream` (same body) streams the
+rest of the turn. See `docs/chat-stream-protocol.md`.
+
+An approval is used at most once: if the resumed run fails after the tool ran,
+it is not offered again and the user sends a new message. Paused runs are kept
+in memory, so they are lost on restart and not shared between workers.

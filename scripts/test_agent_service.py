@@ -36,10 +36,11 @@ from openai.types.responses import (
     ResponseOutputText,
 )
 
-from apps.backend.services.agent_service import AgentService, ApprovalRequiredEvent
+from apps.backend.services.agent_service import AgentService
 from apps.backend.services.approval_service import (
     ApprovalDecision,
     ApprovalError,
+    PausedRun,
     pending_approvals,
 )
 from apps.backend.services.chat_history_service import get_chat_session
@@ -195,17 +196,23 @@ async def _paused_run(engine, session_id="a"):
     result = await svc.run(
         "add 2 and 3", session, _stdio_servers(require_approval=["add"])
     )
-    return svc, result
+    return svc, _paused(result)
+
+
+def _paused(result) -> PausedRun:
+    return PausedRun(
+        state=result.to_state().to_string(),
+        approvals=pending_approvals(result.interruptions),
+    )
 
 
 async def test_tool_needing_approval_pauses_run():
     engine = _sqlite_engine()
     try:
-        _, result = await _paused_run(engine)
+        _, paused = await _paused_run(engine)
     finally:
         await engine.dispose()
-    (approval,) = pending_approvals(result.interruptions)
-    assert result.final_output is None
+    (approval,) = paused.approvals
     assert (approval.tool_name, approval.server_name) == ("add", "sample")
     assert approval.arguments == {"a": 2, "b": 3}
 
@@ -220,10 +227,10 @@ async def test_resume_approved_runs_tool_and_keeps_history_clean():
     engine = _sqlite_engine()
     try:
         svc, paused = await _paused_run(engine)
-        approval = pending_approvals(paused.interruptions)[0]
+        approval = paused.approvals[0]
         servers = _stdio_servers(require_approval=["add"])
         result = await svc.resume(
-            paused.to_state().to_string(),
+            paused,
             [ApprovalDecision(approval.id, True)],
             get_chat_session("a", engine),
             servers,
@@ -242,9 +249,9 @@ async def test_resume_rejected_tells_model_and_skips_tool():
     engine = _sqlite_engine()
     try:
         svc, paused = await _paused_run(engine)
-        approval = pending_approvals(paused.interruptions)[0]
+        approval = paused.approvals[0]
         result = await svc.resume(
-            paused.to_state().to_string(),
+            paused,
             [ApprovalDecision(approval.id, False, "not now")],
             get_chat_session("a", engine),
             _stdio_servers(require_approval=["add"]),
@@ -258,8 +265,7 @@ async def test_resume_rejects_mismatched_decisions():
     engine = _sqlite_engine()
     try:
         svc, paused = await _paused_run(engine)
-        state = paused.to_state().to_string()
-        approval = pending_approvals(paused.interruptions)[0]
+        approval = paused.approvals[0]
         for decisions in (
             [],
             [ApprovalDecision("nope", True)],
@@ -267,7 +273,7 @@ async def test_resume_rejects_mismatched_decisions():
         ):
             try:
                 await svc.resume(
-                    state, decisions, None, _stdio_servers(require_approval=["add"])
+                    paused, decisions, None, _stdio_servers(require_approval=["add"])
                 )
             except ApprovalError:
                 continue
@@ -280,8 +286,29 @@ async def test_stream_ends_with_approval_event():
     servers = _stdio_servers(require_approval=["add"])
     events = [e async for e in AgentService(model=FakeModel()).run_stream("add", None, servers)]
     last = events[-1]
-    assert isinstance(last, ApprovalRequiredEvent), last
+    assert isinstance(last, PausedRun), last
     assert last.approvals[0].tool_name == "add" and last.state
+
+
+async def test_resume_stream_continues_after_approval():
+    engine = _sqlite_engine()
+    try:
+        svc, paused = await _paused_run(engine)
+        servers = _stdio_servers(require_approval=["add"])
+        events = [
+            e
+            async for e in svc.resume_stream(
+                paused,
+                [ApprovalDecision(paused.approvals[0].id, True)],
+                get_chat_session("a", engine),
+                servers,
+            )
+        ]
+    finally:
+        await engine.dispose()
+    names = [getattr(e, "name", None) for e in events]
+    assert "tool_output" in names and not any(isinstance(e, PausedRun) for e in events)
+    assert getattr(servers[0], "session", None) is None, "server not cleaned up"
 
 
 async def test_empty_message_rejected():
@@ -304,6 +331,7 @@ TESTS = [
     test_resume_rejected_tells_model_and_skips_tool,
     test_resume_rejects_mismatched_decisions,
     test_stream_ends_with_approval_event,
+    test_resume_stream_continues_after_approval,
     test_empty_message_rejected,
 ]
 

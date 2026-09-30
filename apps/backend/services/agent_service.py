@@ -8,7 +8,6 @@ Runs a single agent turn given the user message, an optional SDK ``Session``
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Sequence, Union
 
 from agents import Agent, Model, ModelSettings, Runner, RunResult, RunState, Session
@@ -18,8 +17,7 @@ from agents.tool import HostedMCPTool
 
 from apps.backend.services.approval_service import (
     ApprovalDecision,
-    ApprovalError,
-    PendingApproval,
+    PausedRun,
     pending_approvals,
 )
 from apps.backend.services.load_mcp_service import MCPAnyServer
@@ -28,18 +26,6 @@ DEFAULT_INSTRUCTIONS = (
     "You are an assistant that helps engineers enrich incidents and tickets. "
     "Use the available tools when they help answer the question."
 )
-
-
-@dataclass(frozen=True)
-class ApprovalRequiredEvent:
-    """Last event of a stream that paused for tool approval.
-
-    ``state`` is the serialized paused run; hand it to ``AgentService.resume``
-    together with the user's decisions.
-    """
-
-    state: str
-    approvals: list[PendingApproval]
 
 
 class AgentService:
@@ -97,23 +83,22 @@ class AgentService:
 
     async def resume(
         self,
-        state: str,
+        paused: PausedRun,
         decisions: Sequence[ApprovalDecision],
         session: Optional[Session] = None,
         mcp_servers: Optional[Sequence[MCPAnyServer]] = None,
     ) -> RunResult:
         """Continue a run that paused for tool approval.
 
-        ``state`` is the serialized paused run and ``mcp_servers`` must be the
-        same servers it started with. Every pending approval needs exactly one
-        decision (``ApprovalError`` otherwise). Approved tools run; rejected
+        ``mcp_servers`` must be the same servers the run started with. Every
+        pending approval needs exactly one decision (``ApprovalError``
+        otherwise). Approved tools run; rejected
         ones are reported back to the model. The result may pause again if the
         agent then calls another tool that needs approval.
         """
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
-            run_state = await RunState.from_string(agent, state)
-            self._apply_decisions(run_state, decisions)
+            run_state = await self._restore_state(agent, paused, decisions)
             return await Runner.run(
                 agent, run_state, session=session, max_turns=self.max_turns
             )
@@ -123,26 +108,35 @@ class AgentService:
         user_message: str,
         session: Optional[Session] = None,
         mcp_servers: Optional[Sequence[MCPAnyServer]] = None,
-    ) -> AsyncIterator[Union[StreamEvent, ApprovalRequiredEvent]]:
+    ) -> AsyncIterator[Union[StreamEvent, PausedRun]]:
         """Run the agent and yield SDK stream events as they arrive.
 
-        MCP servers stay connected until the stream is exhausted or closed.
-        If the run pauses for tool approval, an ``ApprovalRequiredEvent`` is
-        yielded last.
+        MCP servers stay connected until the stream is exhausted or closed; closing
+        it early cancels the underlying run. If the run pauses for tool
+        approval, a ``PausedRun`` is yielded last.
         """
         self._check_message(user_message)
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
-            streamed = Runner.run_streamed(
-                agent, user_message, session=session, max_turns=self.max_turns
-            )
-            async for event in streamed.stream_events():
+            async for event in self._stream(agent, user_message, session):
                 yield event
-            if streamed.interruptions:
-                yield ApprovalRequiredEvent(
-                    state=streamed.to_state().to_string(),
-                    approvals=pending_approvals(streamed.interruptions),
-                )
+
+    async def resume_stream(
+        self,
+        paused: PausedRun,
+        decisions: Sequence[ApprovalDecision],
+        session: Optional[Session] = None,
+        mcp_servers: Optional[Sequence[MCPAnyServer]] = None,
+    ) -> AsyncIterator[Union[StreamEvent, PausedRun]]:
+        """Streaming counterpart of ``resume``; events are as in ``run_stream``.
+
+        Approval errors are raised on the first iteration, before any event.
+        """
+        async with AsyncExitStack() as stack:
+            agent = await self._build_agent(stack, mcp_servers)
+            run_state = await self._restore_state(agent, paused, decisions)
+            async for event in self._stream(agent, run_state, session):
+                yield event
 
     # ------------------------------------------------------------------
     # Helpers
@@ -174,25 +168,40 @@ class AgentService:
             kwargs["model_settings"] = self.model_settings
         return Agent(**kwargs)
 
-    @staticmethod
-    def _apply_decisions(
-        run_state: RunState, decisions: Sequence[ApprovalDecision]
-    ) -> None:
-        items = run_state.get_interruptions()
-        pending = {a.id: item for a, item in zip(pending_approvals(items), items)}
-        decided = {d.approval_id: d for d in decisions}
-        if len(decided) != len(decisions):
-            raise ApprovalError("Duplicate decision for the same approval")
-        if unknown := decided.keys() - pending.keys():
-            raise ApprovalError(f"No pending approval with id: {sorted(unknown)}")
-        if missing := pending.keys() - decided.keys():
-            raise ApprovalError(f"Missing decision for approval id: {sorted(missing)}")
-        for approval_id, item in pending.items():
-            decision = decided[approval_id]
+    async def _stream(
+        self,
+        agent: Agent,
+        run_input: Union[str, RunState],
+        session: Optional[Session],
+    ) -> AsyncIterator[Union[StreamEvent, PausedRun]]:
+        streamed = Runner.run_streamed(
+            agent, run_input, session=session, max_turns=self.max_turns
+        )
+        try:
+            async for event in streamed.stream_events():
+                yield event
+            if streamed.interruptions:
+                yield PausedRun(
+                    state=streamed.to_state().to_string(),
+                    approvals=pending_approvals(streamed.interruptions),
+                )
+        finally:
+            # No-op after normal completion; stops the model run if the
+            # consumer stopped early (e.g. the HTTP client disconnected).
+            streamed.cancel()
+
+    async def _restore_state(
+        self, agent: Agent, paused: PausedRun, decisions: Sequence[ApprovalDecision]
+    ) -> RunState:
+        decided = paused.check(decisions)
+        run_state = await RunState.from_string(agent, paused.state)
+        for item in run_state.get_interruptions():
+            decision = decided[item.call_id]
             if decision.approved:
                 run_state.approve(item)
             else:
                 run_state.reject(item, rejection_message=decision.reason)
+        return run_state
 
     @staticmethod
     def _check_message(user_message: str) -> None:

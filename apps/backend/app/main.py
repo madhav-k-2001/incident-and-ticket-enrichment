@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from agents import RunResult
@@ -31,9 +32,12 @@ from apps.backend.services.approval_service import (
     ApprovalDecision,
     ApprovalError,
     InMemoryPendingApprovalStore,
+    PausedRun,
+    park_paused_run,
     pending_approvals,
 )
 from apps.backend.services.chat_history_service import create_engine, get_chat_session
+from apps.backend.services.chat_stream_service import SSE_HEADERS, sse_chat_stream
 from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 settings = get_settings()
@@ -79,6 +83,13 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
 
+    @field_validator("message")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("message must not be blank")
+        return value
+
 
 class ApprovalRequest(BaseModel):
     """A tool call the agent wants to make and needs the user's OK for."""
@@ -115,20 +126,61 @@ async def _to_chat_response(session_id: str, result: RunResult, state) -> ChatRe
         return ChatResponse(
             session_id=session_id, status="completed", reply=str(result.final_output)
         )
-    await state.approval_store.put(session_id, result.to_state().to_string())
+    paused = PausedRun(
+        state=result.to_state().to_string(),
+        approvals=pending_approvals(result.interruptions),
+    )
+    await state.approval_store.put(session_id, paused)
     return ChatResponse(
         session_id=session_id,
         status="approval_required",
-        approvals=[
-            ApprovalRequest(
-                approval_id=a.id,
-                tool_name=a.tool_name,
-                server_name=a.server_name,
-                arguments=a.arguments,
-            )
-            for a in pending_approvals(result.interruptions)
-        ],
+        approvals=[ApprovalRequest(**a.to_dict()) for a in paused.approvals],
     )
+
+
+def _stream_response(session_id: str, events, state) -> StreamingResponse:
+    return StreamingResponse(
+        sse_chat_stream(
+            session_id,
+            park_paused_run(events, session_id, state.approval_store),
+            heartbeat_seconds=settings.SSE_HEARTBEAT_SECONDS,
+        ),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
+
+
+async def _ensure_not_paused(state, session_id: str) -> None:
+    if await state.approval_store.has(session_id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This session is waiting for tool approval; answer it via /chat/approvals first.",
+        )
+
+
+async def _take_paused_run(
+    body: ApprovalsBody, state
+) -> tuple[PausedRun, list[ApprovalDecision]]:
+    """Claim the session's paused run and check the decisions against it.
+
+    Claiming is atomic, so an approval is used at most once: after this
+    point the tool may run, and it must never be approvable a second time. Only
+    a bad request (nothing has run yet) leaves the run paused for a retry.
+    """
+    paused = await state.approval_store.pop(body.session_id)
+    if paused is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "No pending tool approval for this session."
+        )
+    decisions = [
+        ApprovalDecision(d.approval_id, d.approved, d.reason) for d in body.decisions
+    ]
+    try:
+        paused.check(decisions)
+    except ApprovalError as exc:
+        await state.approval_store.put(body.session_id, paused)
+        raise HTTPException(422, str(exc)) from exc
+    return paused, decisions
 
 
 @app.post("/chat", tags=["chat"])
@@ -140,11 +192,7 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     ``POST /chat/approvals``.
     """
     state = request.app.state
-    if await state.approval_store.has(body.session_id):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "This session is waiting for tool approval; answer it via /chat/approvals first.",
-        )
+    await _ensure_not_paused(state, body.session_id)
     session = get_chat_session(
         body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
     )
@@ -152,6 +200,32 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
         body.message, session, mcp_servers=state.mcp_servers
     )
     return await _to_chat_response(body.session_id, result, state)
+
+
+@app.post(
+    "/chat/stream",
+    tags=["chat"],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
+    """One chat turn as a Server-Sent Events stream.
+
+    Same request as ``POST /chat``. Emits ``run_started``, then ``text_delta`` /
+    ``reasoning_delta`` / ``tool_call`` / ``tool_output`` / ``message`` events as
+    the agent works, and finally ``done`` (or ``error``, or ``approval_required``
+    when a tool needs approval: answer it with ``POST /chat/approvals/stream``).
+    See ``docs/chat-stream-protocol.md``. Disconnecting cancels the run.
+    """
+    state = request.app.state
+    await _ensure_not_paused(state, body.session_id)
+    session = get_chat_session(
+        body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
+    )
+    events = state.agent_service.run_stream(
+        body.message, session, mcp_servers=state.mcp_servers
+    )
+    return _stream_response(body.session_id, events, state)
 
 
 @app.post("/chat/approvals", tags=["chat"])
@@ -162,27 +236,35 @@ async def resolve_approvals(body: ApprovalsBody, request: Request) -> ChatRespon
     pause again on another tool that needs approval.
     """
     state = request.app.state
-    paused = await state.approval_store.pop(body.session_id)
-    if paused is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "No pending tool approval for this session."
-        )
-    decisions = [
-        ApprovalDecision(d.approval_id, d.approved, d.reason) for d in body.decisions
-    ]
+    paused, decisions = await _take_paused_run(body, state)
     session = get_chat_session(body.session_id, state.engine)
-    try:
-        result = await state.agent_service.resume(
-            paused, decisions, session, mcp_servers=state.mcp_servers
-        )
-    except ApprovalError as exc:
-        # A bad request must not lose the paused run: let the user try again.
-        await state.approval_store.put(body.session_id, paused)
-        raise HTTPException(422, str(exc)) from exc
-    except Exception:
-        await state.approval_store.put(body.session_id, paused)
-        raise
+    result = await state.agent_service.resume(
+        paused, decisions, session, mcp_servers=state.mcp_servers
+    )
     return await _to_chat_response(body.session_id, result, state)
+
+
+@app.post(
+    "/chat/approvals/stream",
+    tags=["chat"],
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+async def resolve_approvals_stream(
+    body: ApprovalsBody, request: Request
+) -> StreamingResponse:
+    """``POST /chat/approvals`` with the continued turn streamed as SSE.
+
+    Same events as ``/chat/stream``. Decisions that do not match the pending
+    approvals fail with ``422`` before the stream starts and keep the run paused.
+    """
+    state = request.app.state
+    paused, decisions = await _take_paused_run(body, state)
+    session = get_chat_session(body.session_id, state.engine)
+    events = state.agent_service.resume_stream(
+        paused, decisions, session, mcp_servers=state.mcp_servers
+    )
+    return _stream_response(body.session_id, events, state)
 
 
 @app.get("/health", tags=["health"])

@@ -13,15 +13,10 @@ from db.client import DatabaseClient
 from db.config import DatabaseConfig
 from db.models import (
     Base,
-    ChatMessage,
-    ChatSession,
     Document,
     DocumentChunk,
-    IncidentDraft,
-    TicketAudit,
 )
 from db.session import get_db, set_default_client
-
 
 
 class TestDatabaseConfig:
@@ -78,21 +73,23 @@ async def test_ping_and_health_check(test_db_client: DatabaseClient):
 @pytest.mark.asyncio
 async def test_session_commit_on_success(test_db_client: DatabaseClient):
     async with test_db_client.session() as session:
-        draft = IncidentDraft(
-            alarm_id="ALM-100",
-            title="High Compressor Temperature",
-            severity="critical",
+        doc = Document(
+            filename="Standard_Alarm_Procedure.pdf",
+            file_type="pdf",
+            file_size=10240,
+            file_path="/docs/sop.pdf",
+            status="PENDING",
         )
-        session.add(draft)
+        session.add(doc)
 
     # Verify committed in separate session
     async with test_db_client.session() as session:
-        stmt = select(IncidentDraft).where(IncidentDraft.alarm_id == "ALM-100")
+        stmt = select(Document).where(Document.filename == "Standard_Alarm_Procedure.pdf")
         result = await session.execute(stmt)
         saved = result.scalar_one()
-        assert saved.title == "High Compressor Temperature"
-        assert saved.severity == "critical"
-        assert saved.status == "draft"
+        assert saved.filename == "Standard_Alarm_Procedure.pdf"
+        assert saved.file_type == "pdf"
+        assert saved.status == "PENDING"
         assert saved.id is not None
         assert saved.created_at is not None
 
@@ -101,45 +98,62 @@ async def test_session_commit_on_success(test_db_client: DatabaseClient):
 async def test_session_rollback_on_error(test_db_client: DatabaseClient):
     with pytest.raises(RuntimeError, match="Simulated failure"):
         async with test_db_client.session() as session:
-            draft = IncidentDraft(
-                alarm_id="ALM-FAIL",
-                title="Should Be Rolled Back",
+            doc = Document(
+                filename="Should_Be_Rolled_Back.pdf",
+                file_type="pdf",
+                file_size=5000,
+                file_path="/docs/rollback.pdf",
             )
-            session.add(draft)
+            session.add(doc)
             raise RuntimeError("Simulated failure")
 
     # Verify not committed
     async with test_db_client.session() as session:
-        stmt = select(IncidentDraft).where(IncidentDraft.alarm_id == "ALM-FAIL")
+        stmt = select(Document).where(Document.filename == "Should_Be_Rolled_Back.pdf")
         result = await session.execute(stmt)
         assert result.scalar_one_or_none() is None
 
 
-class SampleChatService(BaseDatabaseService):
-    """Example domain service demonstrating BaseDatabaseService usage."""
+class SampleDocumentService(BaseDatabaseService):
+    """Example domain service demonstrating BaseDatabaseService usage with Document models."""
 
-    async def create_chat_session(self, title: str) -> ChatSession:
+    async def register_document(
+        self, filename: str, file_type: str, file_size: int, file_path: str
+    ) -> Document:
         async with self.get_session() as session:
-            chat = ChatSession(title=title)
-            session.add(chat)
+            doc = Document(
+                filename=filename,
+                file_type=file_type,
+                file_size=file_size,
+                file_path=file_path,
+                status="PENDING",
+            )
+            session.add(doc)
             await session.flush()
-            return chat
+            return doc
 
-    async def post_message(
-        self, session_id: str, role: str, content: str
-    ) -> ChatMessage:
+    async def add_chunk(
+        self, document_id: str, chunk_index: int, content: str, embedding: list[float]
+    ) -> DocumentChunk:
         async with self.get_session() as session:
-            msg = ChatMessage(session_id=session_id, role=role, content=content)
-            session.add(msg)
+            chunk = DocumentChunk(
+                document_id=document_id,
+                chunk_index=chunk_index,
+                content=content,
+                char_count=len(content),
+                estimated_tokens=len(content) // 4,
+                embedding=embedding,
+            )
+            session.add(chunk)
             await session.flush()
-            return msg
+            return chunk
 
-    async def get_session_history(self, session_id: str) -> ChatSession | None:
+    async def get_document_with_chunks(self, document_id: str) -> Document | None:
         async with self.get_session() as session:
             stmt = (
-                select(ChatSession)
-                .where(ChatSession.id == session_id)
-                .options(selectinload(ChatSession.messages))
+                select(Document)
+                .where(Document.id == document_id)
+                .options(selectinload(Document.chunks))
             )
             result = await session.execute(stmt)
             return result.scalar_one_or_none()
@@ -148,48 +162,55 @@ class SampleChatService(BaseDatabaseService):
 @pytest.mark.asyncio
 async def test_service_class_integration(test_db_client: DatabaseClient):
     # Test service using DatabaseClient
-    service = SampleChatService(db=test_db_client)
-    chat = await service.create_chat_session("Compressor Overheat Investigation")
-    assert chat.id is not None
-
-    msg1 = await service.post_message(
-        session_id=chat.id,
-        role="user",
-        content="Show active alarms in EastRefinery",
+    service = SampleDocumentService(db=test_db_client)
+    doc = await service.register_document(
+        filename="Compressor_Troubleshooting.pdf",
+        file_type="pdf",
+        file_size=150000,
+        file_path="/uploads/Compressor_Troubleshooting.pdf",
     )
-    msg2 = await service.post_message(
-        session_id=chat.id,
-        role="assistant",
-        content="Found 2 critical alarms: ALM-9021 and ALM-9022.",
+    assert doc.id is not None
+
+    chunk1 = await service.add_chunk(
+        document_id=doc.id,
+        chunk_index=0,
+        content="Overview of wet gas compressor discharge pressure alarms.",
+        embedding=[0.1] * 768,
+    )
+    chunk2 = await service.add_chunk(
+        document_id=doc.id,
+        chunk_index=1,
+        content="Recommended actions: inspect bypass valve, check discharge filter.",
+        embedding=[0.2] * 768,
     )
 
-    history = await service.get_session_history(chat.id)
-    assert history is not None
-    assert len(history.messages) == 2
-    assert history.messages[0].role == "user"
-    assert history.messages[1].role == "assistant"
-    assert "EastRefinery" in history.messages[0].content
+    retrieved = await service.get_document_with_chunks(doc.id)
+    assert retrieved is not None
+    assert len(retrieved.chunks) == 2
+    assert retrieved.chunks[0].chunk_index == 0
+    assert retrieved.chunks[1].chunk_index == 1
+    assert "discharge pressure" in retrieved.chunks[0].content
 
 
 @pytest.mark.asyncio
 async def test_service_with_injected_session(test_db_client: DatabaseClient):
     # Test service using an injected request-scoped AsyncSession
     async with test_db_client.session() as session:
-        service = SampleChatService(db=session)
-        audit = TicketAudit(
-            ticket_id="INC-8821",
-            alarm_id="ALM-9021",
-            action="create_ticket",
-            status="success",
+        service = SampleDocumentService(db=session)
+        doc = await service.register_document(
+            filename="Injected_Session_Doc.pdf",
+            file_type="pdf",
+            file_size=4096,
+            file_path="/docs/injected.pdf",
         )
-        session.add(audit)
+        assert doc.id is not None
 
     async with test_db_client.session() as session:
-        stmt = select(TicketAudit).where(TicketAudit.ticket_id == "INC-8821")
+        stmt = select(Document).where(Document.filename == "Injected_Session_Doc.pdf")
         result = await session.execute(stmt)
         record = result.scalar_one()
-        assert record.action == "create_ticket"
-        assert record.status == "success"
+        assert record.file_size == 4096
+        assert record.status == "PENDING"
 
 
 @pytest.mark.asyncio
@@ -279,4 +300,3 @@ async def test_document_and_chunk_lifecycle(test_db_client: DatabaseClient):
         chunks_stmt = select(DocumentChunk).where(DocumentChunk.document_id == doc_id)
         chunks_res = await session.execute(chunks_stmt)
         assert len(chunks_res.scalars().all()) == 0
-

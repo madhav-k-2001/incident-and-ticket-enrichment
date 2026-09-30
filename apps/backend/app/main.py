@@ -27,7 +27,7 @@ from agents.tool import HostedMCPTool
 from apps.backend.app.config import get_settings
 from apps.backend.services.agent_service import AgentService
 from apps.backend.services.chat_history_service import create_engine, get_chat_session
-from common.load_mcp_service import MCPServerConfigService
+from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 settings = get_settings()
 

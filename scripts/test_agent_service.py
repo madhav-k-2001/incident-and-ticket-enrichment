@@ -38,7 +38,7 @@ from openai.types.responses import (
 
 from apps.backend.services.agent_service import AgentService
 from apps.backend.services.chat_history_service import get_chat_session
-from common.load_mcp_service import MCPServerConfigService
+from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 set_tracing_disabled(True)
 

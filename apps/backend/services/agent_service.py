@@ -2,7 +2,7 @@
 
 Runs a single agent turn given the user message, an optional SDK ``Session``
 (chat history) and an optional list of MCP servers (as produced by
-``common.load_mcp_service``).
+``apps.backend.services.load_mcp_service``).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from agents.mcp import MCPServer
 from agents.stream_events import StreamEvent
 from agents.tool import HostedMCPTool
 
-from common.load_mcp_service import MCPAnyServer
+from apps.backend.services.load_mcp_service import MCPAnyServer
 
 DEFAULT_INSTRUCTIONS = (
     "You are an assistant that helps engineers enrich incidents and tickets. "

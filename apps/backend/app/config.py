@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     AGENT_MAX_TURNS: int = 10
 
     # MCP servers: path to a JSON file or an inline JSON string following the
-    # schema documented in common.load_mcp_service.MCPServerConfigService.
+    # schema documented in apps.backend.services.load_mcp_service.MCPServerConfigService.
     MCP_SERVERS_CONFIG: Optional[str] = None
 
     # PostgreSQL (chat history). DATABASE_URL wins over the POSTGRES_* parts.

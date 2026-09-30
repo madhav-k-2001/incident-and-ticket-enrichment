@@ -7,7 +7,7 @@ from agents.mcp import (
     MCPServerStreamableHttp,
 )
 from agents.tool import HostedMCPTool
-from common.load_mcp_service import MCPServerConfigService
+from apps.backend.services.load_mcp_service import MCPServerConfigService
 
 
 @pytest.fixture

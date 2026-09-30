@@ -20,12 +20,12 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from sqlalchemy.ext.asyncio import create_async_engine
 from agents import Model, ModelResponse, set_tracing_disabled
 from agents.usage import Usage
 from openai.types.responses import (
@@ -36,8 +36,8 @@ from openai.types.responses import (
     ResponseOutputText,
 )
 
-from apps.backend.models.chat_session_model import ChatMessage, SenderType
 from apps.backend.services.agent_service import AgentService
+from apps.backend.services.chat_history_service import get_chat_session
 from common.load_mcp_service import MCPServerConfigService
 
 set_tracing_disabled(True)
@@ -126,32 +126,30 @@ def _stdio_servers():
     )
 
 
-def _msg(seq: int, sender: SenderType, text: str) -> ChatMessage:
-    return ChatMessage(
-        session_id=uuid4(), message_sequence=seq, sender_type=sender, message_content=text
-    )
+def _sqlite_engine():
+    """Offline stand-in for PostgreSQL: any SQLAlchemy async engine works."""
+    return create_async_engine("sqlite+aiosqlite:///:memory:")
 
 
-async def test_history_and_message_order():
+async def test_session_history_persisted_per_session_id():
     model = FakeModel()
     svc = AgentService(model=model)
-    history = [_msg(0, SenderType.user, "hello"), _msg(1, SenderType.bot, "hi there")]
-    result = await svc.run("what next?", history)
+    engine = _sqlite_engine()
+    try:
+        first = get_chat_session("a", engine, create_tables=True)
+        await svc.run("hello", first)
+        # A new session object with the same id reloads history from the database.
+        await svc.run("what next?", get_chat_session("a", engine))
+        await svc.run("other user", get_chat_session("b", engine))
+    finally:
+        await engine.dispose()
 
-    assert result.final_output == "no tools used", result.final_output
-    sent = model.calls[0]["input"]
-    assert [(i["role"], i["content"]) for i in sent] == [
-        ("user", "hello"),
-        ("assistant", "hi there"),
-        ("user", "what next?"),
-    ], sent
-
-
-async def test_dict_history_accepted():
-    model = FakeModel()
-    svc = AgentService(model=model)
-    await svc.run("b", [{"role": "user", "content": "a"}])
-    assert [i["content"] for i in model.calls[0]["input"]] == ["a", "b"]
+    turn2 = model.calls[1]["input"]
+    assert [i.get("content") for i in turn2 if i.get("role") == "user"] == [
+        "hello",
+        "what next?",
+    ], turn2
+    assert len(model.calls[2]["input"]) == 1, "session b saw session a's history"
 
 
 async def test_local_mcp_tool_called_and_cleaned_up():
@@ -194,8 +192,7 @@ async def test_empty_message_rejected():
 
 
 TESTS = [
-    test_history_and_message_order,
-    test_dict_history_accepted,
+    test_session_history_persisted_per_session_id,
     test_local_mcp_tool_called_and_cleaned_up,
     test_hosted_mcp_tool_passed_as_tool,
     test_stream_yields_events,
@@ -214,12 +211,11 @@ async def run_live(model: str) -> int:
         instructions="Be terse. Use the add tool for any arithmetic.",
         max_turns=5,
     )
-    history = [
-        _msg(0, SenderType.user, "My name is Priya."),
-        _msg(1, SenderType.bot, "Nice to meet you, Priya."),
-    ]
-
-    r1 = await svc.run("What is my name? Answer in one word.", history)
+    engine = _sqlite_engine()
+    session = get_chat_session("live", engine, create_tables=True)
+    await svc.run("My name is Priya.", session)
+    r1 = await svc.run("What is my name? Answer in one word.", session)
+    await engine.dispose()
     print(f"[history] {r1.final_output!r}")
     ok1 = "priya" in r1.final_output.lower()
 

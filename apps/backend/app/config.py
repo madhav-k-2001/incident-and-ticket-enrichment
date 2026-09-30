@@ -6,6 +6,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,7 +25,21 @@ class Settings(BaseSettings):
     # schema documented in common.load_mcp_service.MCPServerConfigService.
     MCP_SERVERS_CONFIG: Optional[str] = None
 
-    # Create ORM tables on startup (dev convenience)
+    # PostgreSQL (chat history). DATABASE_URL wins over the POSTGRES_* parts.
+    DATABASE_URL: Optional[str] = None
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "copilot_db"
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: float = 30.0
+    DB_POOL_RECYCLE: int = 1800
+    DB_POOL_PRE_PING: bool = True
+    DB_ECHO: bool = False
+
+    # Create the chat history tables on startup (dev convenience)
     DB_CREATE_TABLES: bool = False
 
     model_config = SettingsConfigDict(
@@ -32,6 +47,15 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def database_url(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        return (
+            f"postgresql+asyncpg://{quote_plus(self.POSTGRES_USER)}:{quote_plus(self.POSTGRES_PASSWORD)}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
     def mcp_servers_spec(self) -> dict[str, Any]:
         """Return the parsed MCP server spec, or an empty spec if none is set."""

@@ -1,6 +1,6 @@
 """FastAPI entrypoint for the backend.
 
-Initializes the database client, ChatHistoryService, AgentService and the MCP
+Creates the PostgreSQL engine (chat history), AgentService and the MCP
 server objects on startup and exposes them on ``app.state``.
 
 Run from the project root:
@@ -15,17 +15,19 @@ from typing import AsyncIterator
 
 from dotenv import load_dotenv
 
-# DatabaseConfig and the Agents SDK read os.environ directly, so load .env first.
+# The Agents SDK reads os.environ directly (e.g. OPENAI_API_KEY), so load .env first.
 load_dotenv()
 
 from fastapi import FastAPI, Request, Response, status
+from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from agents.tool import HostedMCPTool
 
 from apps.backend.app.config import get_settings
 from apps.backend.services.agent_service import AgentService
+from apps.backend.services.chat_history_service import create_engine, get_chat_session
 from common.load_mcp_service import MCPServerConfigService
-from db.client import DatabaseClient
 
 settings = get_settings()
 
@@ -38,15 +40,13 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    db_client = DatabaseClient()
-    if settings.DB_CREATE_TABLES:
-        await db_client.create_tables()
+    engine = create_engine(settings)
 
     # MCP servers are only instantiated here; AgentService connects them per run.
     mcp_servers = MCPServerConfigService().load(settings.mcp_servers_spec())
     logger.info("Loaded %d MCP server(s)", len(mcp_servers))
 
-    app.state.db_client = db_client
+    app.state.engine = engine
     app.state.agent_service = AgentService(
         name=settings.AGENT_NAME,
         model=settings.AGENT_MODEL,
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        await db_client.disconnect()
+        await engine.dispose()
 
 
 app = FastAPI(
@@ -67,11 +67,40 @@ app = FastAPI(
 )
 
 
+class ChatRequest(BaseModel):
+    session_id: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+
+class ChatResponse(BaseModel):
+    session_id: str
+    reply: str
+
+
+@app.post("/chat", tags=["chat"])
+async def chat(body: ChatRequest, request: Request) -> ChatResponse:
+    """One chat turn; history for ``session_id`` is loaded and saved in PostgreSQL."""
+    state = request.app.state
+    session = get_chat_session(
+        body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
+    )
+    result = await state.agent_service.run(
+        body.message, session, mcp_servers=state.mcp_servers
+    )
+    return ChatResponse(session_id=body.session_id, reply=str(result.final_output))
+
+
 @app.get("/health", tags=["health"])
 async def health(request: Request, response: Response) -> dict:
     """Report database connectivity and which services / MCP servers are loaded."""
     state = request.app.state
-    database = await state.db_client.check_health()
+    try:
+        async with state.engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        database = {"connected": True}
+    except Exception as exc:
+        logger.warning("Database health check failed: %s", exc)
+        database = {"connected": False}
 
     mcp_servers = [
         {
@@ -91,7 +120,6 @@ async def health(request: Request, response: Response) -> dict:
         "database": database,
         "services": {
             "agent_service": state.agent_service is not None,
-            "chat_history_service": state.chat_history_service is not None,
         },
         "mcp_servers": mcp_servers,
     }

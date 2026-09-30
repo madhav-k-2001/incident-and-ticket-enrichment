@@ -1,38 +1,33 @@
 """Agent service built on the OpenAI Agents SDK.
 
-Runs a single agent turn given the user message, prior chat history and an
-optional list of MCP servers (as produced by ``common.load_mcp_service``).
+Runs a single agent turn given the user message, an optional SDK ``Session``
+(chat history) and an optional list of MCP servers (as produced by
+``common.load_mcp_service``).
 """
 
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from typing import Any, AsyncIterator, Mapping, Optional, Sequence, Union
+from typing import Any, AsyncIterator, Optional, Sequence, Union
 
-from agents import Agent, Model, ModelSettings, Runner, RunResult, TResponseInputItem
+from agents import Agent, Model, ModelSettings, Runner, RunResult, Session
 from agents.mcp import MCPServer
 from agents.stream_events import StreamEvent
 from agents.tool import HostedMCPTool
 
-from apps.backend.models.chat_session_model import ChatMessage, SenderType
 from common.load_mcp_service import MCPAnyServer
-
-HistoryItem = Union[ChatMessage, Mapping[str, Any]]
 
 DEFAULT_INSTRUCTIONS = (
     "You are an assistant that helps engineers enrich incidents and tickets. "
     "Use the available tools when they help answer the question."
 )
 
-_ROLE_BY_SENDER = {
-    SenderType.user.value: "user",
-    SenderType.patient.value: "user",
-    SenderType.bot.value: "assistant",
-}
-
 
 class AgentService:
     """Runs an OpenAI Agents SDK agent for one chat turn.
+
+    When a ``session`` is given the SDK loads prior history from it and stores
+    the new turn back, so callers never manage history themselves.
 
     Local MCP servers (stdio / SSE / streamable HTTP) are connected for the
     duration of a single call and cleaned up afterwards. ``HostedMCPTool``
@@ -62,32 +57,36 @@ class AgentService:
     async def run(
         self,
         user_message: str,
-        chat_history: Optional[Sequence[HistoryItem]] = None,
+        session: Optional[Session] = None,
         mcp_servers: Optional[Sequence[MCPAnyServer]] = None,
     ) -> RunResult:
         """Run the agent to completion and return the SDK ``RunResult``.
 
         Use ``result.final_output`` for the reply text.
         """
-        agent_input = self._build_input(user_message, chat_history)
+        self._check_message(user_message)
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
-            return await Runner.run(agent, agent_input, max_turns=self.max_turns)
+            return await Runner.run(
+                agent, user_message, session=session, max_turns=self.max_turns
+            )
 
     async def run_stream(
         self,
         user_message: str,
-        chat_history: Optional[Sequence[HistoryItem]] = None,
+        session: Optional[Session] = None,
         mcp_servers: Optional[Sequence[MCPAnyServer]] = None,
     ) -> AsyncIterator[StreamEvent]:
         """Run the agent and yield SDK stream events as they arrive.
 
         MCP servers stay connected until the stream is exhausted or closed.
         """
-        agent_input = self._build_input(user_message, chat_history)
+        self._check_message(user_message)
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
-            streamed = Runner.run_streamed(agent, agent_input, max_turns=self.max_turns)
+            streamed = Runner.run_streamed(
+                agent, user_message, session=session, max_turns=self.max_turns
+            )
             async for event in streamed.stream_events():
                 yield event
 
@@ -122,21 +121,6 @@ class AgentService:
         return Agent(**kwargs)
 
     @staticmethod
-    def _build_input(
-        user_message: str,
-        chat_history: Optional[Sequence[HistoryItem]],
-    ) -> list[TResponseInputItem]:
-        """Convert stored history plus the new message into SDK input items."""
+    def _check_message(user_message: str) -> None:
         if not user_message or not user_message.strip():
             raise ValueError("user_message must be a non-empty string")
-
-        items: list[TResponseInputItem] = []
-        for entry in chat_history or []:
-            if isinstance(entry, ChatMessage):
-                sender = getattr(entry.sender_type, "value", entry.sender_type)
-                role = _ROLE_BY_SENDER.get(sender, "user")
-                items.append({"role": role, "content": entry.message_content})
-            else:
-                items.append({"role": entry["role"], "content": entry["content"]})
-        items.append({"role": "user", "content": user_message})
-        return items

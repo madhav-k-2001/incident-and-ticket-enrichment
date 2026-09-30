@@ -11,7 +11,7 @@ name: incident-enrichment-mcp
 services:
   alarm-simulator:
     build:
-      context: ..
+      context: ../apps/alarms_and_ticket_simulation_api/
       dockerfile: Dockerfile
     ports:
       - "8000:8000"

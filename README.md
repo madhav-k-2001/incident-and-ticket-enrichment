@@ -19,6 +19,7 @@ The agent is built on the OpenAI Agents SDK. It reaches its data through three
 - [Load the knowledge base](#load-the-knowledge-base)
 - [Tool approval](#tool-approval)
 - [Tests](#tests)
+- [Formatting](#formatting)
 - [Sample interactions](#sample-interactions)
 - [Assumptions](#assumptions)
 - [Known limitations](#known-limitations)
@@ -314,6 +315,15 @@ any suite fails. To run just the backend tests directly:
 
 ```bash
 cd apps/backend && uv run pytest
+```
+
+## Formatting
+
+[Ruff](https://docs.astral.sh/ruff/) formats the Python code, configured in [`ruff.toml`](ruff.toml):
+
+```bash
+ruff format .          # format
+ruff format --check .  # check only
 ```
 
 ## Sample interactions

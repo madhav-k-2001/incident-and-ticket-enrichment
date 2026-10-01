@@ -1,0 +1,8 @@
+# Ruff config for the whole repo (formatter only). Run: ruff format .
+line-length = 120
+target-version = "py312"
+extend-exclude = ["**/.venv", "ingestion/uploads"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

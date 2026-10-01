@@ -21,6 +21,12 @@ dependencies = [
 pythonpath = ["../.."]
 testpaths = ["../../tests", "../../scripts/test_agent_service.py"]
 asyncio_mode = "auto"
+# End-to-end tests need a real running API, so they are off by default; opt in with `-m e2e`.
+addopts = "-m 'not e2e'"
+markers = [
+    "e2e: end-to-end test against a real running backend (needs E2E_BASE_URL); excluded from the default run",
+    "llm: e2e test that runs a real agent turn (needs OPENAI_API_KEY on the server, costs tokens)",
+]
 
 [dependency-groups]
 dev = [

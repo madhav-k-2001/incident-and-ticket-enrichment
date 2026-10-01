@@ -3,7 +3,7 @@
 ## Testing and CI
 
 - **No CI.** There is no `.github/workflows/ci.yml`; format, lint and tests run locally only (`ruff format`, `python scripts/run_tests.py`).
-- **End-to-end tests are limited.** `tests/e2e` (added on a separate branch) calls a running backend over HTTP for the routes and real agent turns. It is excluded from the default run and needs a live stack. It does not yet assert that a single scenario combines MCP tool calls, RAG retrieval and a cited answer, and there are no integration tests.
+- **End-to-end tests are limited.** `tests/e2e` calls a running backend over HTTP for the routes and real agent turns. It is excluded from the default run and needs a live stack. It does not yet assert that a single scenario combines MCP tool calls, RAG retrieval and a cited answer, and there are no integration tests.
 - **No orchestration tests** for multi-step MCP chains, partial source failure or conflicting evidence. Those behaviours are defined in the system prompt and exercised only manually.
 - **No linting or static analysis.** Ruff is used as a formatter only.
 

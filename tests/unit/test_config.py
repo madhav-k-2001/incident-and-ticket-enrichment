@@ -32,7 +32,9 @@ def test_database_url_wins_over_parts():
 
 
 def test_database_url_built_from_parts_and_quotes_credentials():
-    s = settings(POSTGRES_USER="us er", POSTGRES_PASSWORD="p@ss/word", POSTGRES_HOST="db", POSTGRES_PORT=6543, POSTGRES_DB="x")
+    s = settings(
+        POSTGRES_USER="us er", POSTGRES_PASSWORD="p@ss/word", POSTGRES_HOST="db", POSTGRES_PORT=6543, POSTGRES_DB="x"
+    )
     assert s.database_url == "postgresql+asyncpg://us+er:p%40ss%2Fword@db:6543/x"
 
 

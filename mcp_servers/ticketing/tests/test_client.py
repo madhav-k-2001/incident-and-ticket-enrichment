@@ -55,7 +55,9 @@ async def test_never_retries_writes(api_client: TicketingApiClient, fake_api: Fa
     assert len(fake_api.requests) == 1
 
 
-async def test_maps_connection_failures_to_unavailable(api_client: TicketingApiClient, fake_api: FakeTicketingApi) -> None:
+async def test_maps_connection_failures_to_unavailable(
+    api_client: TicketingApiClient, fake_api: FakeTicketingApi
+) -> None:
     def refused(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused", request=request)
 

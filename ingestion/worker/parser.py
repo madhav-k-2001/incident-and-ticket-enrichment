@@ -31,10 +31,7 @@ def parse_pdf(file_path: str) -> List[Dict[str, Any]]:
         text = page.extract_text() or ""
         text = text.strip()
         if text:
-            results.append({
-                "page_number": idx + 1,
-                "text": text
-            })
+            results.append({"page_number": idx + 1, "text": text})
 
     if not results:
         logger.warning(f"No extractable text found in PDF: {file_path}")
@@ -83,19 +80,13 @@ def parse_docx(file_path: str) -> List[Dict[str, Any]]:
         current_char_count += len(block)
 
         if current_char_count >= 3000:
-            results.append({
-                "page_number": page_number,
-                "text": "\n\n".join(current_page_text)
-            })
+            results.append({"page_number": page_number, "text": "\n\n".join(current_page_text)})
             page_number += 1
             current_page_text = []
             current_char_count = 0
 
     if current_page_text:
-        results.append({
-            "page_number": page_number,
-            "text": "\n\n".join(current_page_text)
-        })
+        results.append({"page_number": page_number, "text": "\n\n".join(current_page_text)})
 
     return results
 
@@ -130,11 +121,13 @@ def parse_markdown(file_path: str) -> List[Dict[str, Any]]:
         # A heading with no body still carries no content worth embedding
         has_body = any(l.strip() and not _HEADING_RE.match(l) for l in current_lines)
         if text and has_body:
-            sections.append({
-                "page_number": len(sections) + 1,
-                "text": text,
-                "heading": current_heading,
-            })
+            sections.append(
+                {
+                    "page_number": len(sections) + 1,
+                    "text": text,
+                    "heading": current_heading,
+                }
+            )
 
     for line in lines:
         if _FENCE_RE.match(line):

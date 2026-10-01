@@ -136,9 +136,7 @@ class ApprovalsBody(BaseModel):
 async def _to_chat_response(session_id: str, result: RunResult, state) -> ChatResponse:
     """Build the response for a finished or paused run, parking a paused run for later."""
     if not result.interruptions:
-        return ChatResponse(
-            session_id=session_id, status="completed", reply=str(result.final_output)
-        )
+        return ChatResponse(session_id=session_id, status="completed", reply=str(result.final_output))
     paused = PausedRun(
         state=result.to_state().to_string(),
         approvals=pending_approvals(result.interruptions),
@@ -171,9 +169,7 @@ async def _ensure_not_paused(state, session_id: str) -> None:
         )
 
 
-async def _take_paused_run(
-    body: ApprovalsBody, state
-) -> tuple[PausedRun, list[ApprovalDecision]]:
+async def _take_paused_run(body: ApprovalsBody, state) -> tuple[PausedRun, list[ApprovalDecision]]:
     """Claim the session's paused run and check the decisions against it.
 
     Claiming is atomic, so an approval is used at most once: after this
@@ -182,12 +178,8 @@ async def _take_paused_run(
     """
     paused = await state.approval_store.pop(body.session_id)
     if paused is None:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "No pending tool approval for this session."
-        )
-    decisions = [
-        ApprovalDecision(d.approval_id, d.approved, d.reason) for d in body.decisions
-    ]
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No pending tool approval for this session.")
+    decisions = [ApprovalDecision(d.approval_id, d.approved, d.reason) for d in body.decisions]
     try:
         paused.check(decisions)
     except ApprovalError as exc:
@@ -206,12 +198,8 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     """
     state = request.app.state
     await _ensure_not_paused(state, body.session_id)
-    session = get_chat_session(
-        body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
-    )
-    result = await state.agent_service.run(
-        body.message, session, mcp_servers=state.mcp_servers
-    )
+    session = get_chat_session(body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES)
+    result = await state.agent_service.run(body.message, session, mcp_servers=state.mcp_servers)
     return await _to_chat_response(body.session_id, result, state)
 
 
@@ -233,12 +221,8 @@ async def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
     """
     state = request.app.state
     await _ensure_not_paused(state, body.session_id)
-    session = get_chat_session(
-        body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES
-    )
-    events = state.agent_service.run_stream(
-        body.message, session, mcp_servers=state.mcp_servers
-    )
+    session = get_chat_session(body.session_id, state.engine, create_tables=settings.DB_CREATE_TABLES)
+    events = state.agent_service.run_stream(body.message, session, mcp_servers=state.mcp_servers)
     return _stream_response(body.session_id, events, state)
 
 
@@ -252,9 +236,7 @@ async def resolve_approvals(body: ApprovalsBody, request: Request) -> ChatRespon
     state = request.app.state
     paused, decisions = await _take_paused_run(body, state)
     session = get_chat_session(body.session_id, state.engine)
-    result = await state.agent_service.resume(
-        paused, decisions, session, mcp_servers=state.mcp_servers
-    )
+    result = await state.agent_service.resume(paused, decisions, session, mcp_servers=state.mcp_servers)
     return await _to_chat_response(body.session_id, result, state)
 
 
@@ -265,9 +247,7 @@ async def resolve_approvals(body: ApprovalsBody, request: Request) -> ChatRespon
     response_class=StreamingResponse,
     responses={200: {"content": {"text/event-stream": {}}}},
 )
-async def resolve_approvals_stream(
-    body: ApprovalsBody, request: Request
-) -> StreamingResponse:
+async def resolve_approvals_stream(body: ApprovalsBody, request: Request) -> StreamingResponse:
     """``POST /chat/approvals`` with the continued turn streamed as SSE.
 
     Same events as ``/chat/stream``. Decisions that do not match the pending
@@ -276,9 +256,7 @@ async def resolve_approvals_stream(
     state = request.app.state
     paused, decisions = await _take_paused_run(body, state)
     session = get_chat_session(body.session_id, state.engine)
-    events = state.agent_service.resume_stream(
-        paused, decisions, session, mcp_servers=state.mcp_servers
-    )
+    events = state.agent_service.resume_stream(paused, decisions, session, mcp_servers=state.mcp_servers)
     return _stream_response(body.session_id, events, state)
 
 

@@ -64,7 +64,9 @@ Unit = Annotated[str | None, Field(max_length=100, description="Process unit, e.
 StartTime = Annotated[
     datetime | None, Field(description="Start of the time window, ISO-8601 (treated as UTC if no offset).")
 ]
-EndTime = Annotated[datetime | None, Field(description="End of the time window, ISO-8601 (treated as UTC if no offset).")]
+EndTime = Annotated[
+    datetime | None, Field(description="End of the time window, ISO-8601 (treated as UTC if no offset).")
+]
 
 
 def create_server(settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None) -> MCPServer:

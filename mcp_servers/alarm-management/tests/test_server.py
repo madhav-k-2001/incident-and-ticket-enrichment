@@ -55,7 +55,9 @@ async def test_get_alarm_context_returns_structured_enrichment(connect) -> None:
 
 async def test_list_alarms_forwards_filters(connect, fake_api: FakeAlarmApi) -> None:
     async with connect() as client:
-        result = await client.call_tool("list_alarms", {"status": "active", "sort_by": "priority_score", "page_size": 5})
+        result = await client.call_tool(
+            "list_alarms", {"status": "active", "sort_by": "priority_score", "page_size": 5}
+        )
 
     assert not result.is_error
     assert result.structured_content["alarms"][0]["alarm_id"] == "ALM-1"

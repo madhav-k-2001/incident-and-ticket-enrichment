@@ -103,12 +103,14 @@ def test_load_hosted(service):
 
 
 def test_load_from_json_string(service):
-    json_str = json.dumps({
-        "servers": [
-            {"name": "calendar", "type": "streamable_http", "params": {"url": "http://localhost:8000/mcp"}},
-            {"name": "docs", "type": "streamable_http", "params": {"url": "http://localhost:8001/mcp"}},
-        ]
-    })
+    json_str = json.dumps(
+        {
+            "servers": [
+                {"name": "calendar", "type": "streamable_http", "params": {"url": "http://localhost:8000/mcp"}},
+                {"name": "docs", "type": "streamable_http", "params": {"url": "http://localhost:8001/mcp"}},
+            ]
+        }
+    )
     servers = service.load(json_str)
     assert len(servers) == 2
     assert all(isinstance(s, MCPServerStreamableHttp) for s in servers)
@@ -116,11 +118,7 @@ def test_load_from_json_string(service):
 
 
 def test_invalid_type(service):
-    payload = {
-        "servers": [
-            {"name": "bad", "type": "unknown_type", "params": {}}
-        ]
-    }
+    payload = {"servers": [{"name": "bad", "type": "unknown_type", "params": {}}]}
     with pytest.raises(ValueError, match="Unknown server type"):
         service.load(payload)
 
@@ -143,9 +141,7 @@ def test_require_approval_list_becomes_always_policy(service):
 
 
 def test_require_approval_defaults_to_none(service):
-    (server,) = service.load(
-        [{"name": "docs", "type": "sse", "params": {"url": "http://localhost:8001/sse"}}]
-    )
+    (server,) = service.load([{"name": "docs", "type": "sse", "params": {"url": "http://localhost:8001/sse"}}])
     assert server._needs_approval_policy is False
 
 
@@ -174,9 +170,7 @@ def test_require_approval_hosted_goes_into_tool_config(service):
             }
         ]
     )
-    assert tool.tool_config["require_approval"] == {
-        "always": {"tool_names": ["delete_forecast"]}
-    }
+    assert tool.tool_config["require_approval"] == {"always": {"tool_names": ["delete_forecast"]}}
 
 
 def test_require_approval_does_not_mutate_input_spec(service):

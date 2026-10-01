@@ -60,9 +60,7 @@ class FakeModel(Model):
     def _next_output(self, input, tools) -> list:
         self.calls.append({"input": input, "tools": tools})
         items = input if isinstance(input, list) else []
-        tool_result = next(
-            (i for i in items if i.get("type") == "function_call_output"), None
-        )
+        tool_result = next((i for i in items if i.get("type") == "function_call_output"), None)
         if tool_result is not None:
             text = f"tool said: {tool_result['output']}"
         else:
@@ -84,23 +82,39 @@ class FakeModel(Model):
                 role="assistant",
                 status="completed",
                 type="message",
-                content=[
-                    ResponseOutputText(text=text, type="output_text", annotations=[])
-                ],
+                content=[ResponseOutputText(text=text, type="output_text", annotations=[])],
             )
         ]
 
     async def get_response(
-        self, system_instructions, input, model_settings, tools, output_schema,
-        handoffs, tracing, *, previous_response_id, conversation_id, prompt,
+        self,
+        system_instructions,
+        input,
+        model_settings,
+        tools,
+        output_schema,
+        handoffs,
+        tracing,
+        *,
+        previous_response_id,
+        conversation_id,
+        prompt,
     ) -> ModelResponse:
-        return ModelResponse(
-            output=self._next_output(input, tools), usage=Usage(), response_id=None
-        )
+        return ModelResponse(output=self._next_output(input, tools), usage=Usage(), response_id=None)
 
     async def stream_response(
-        self, system_instructions, input, model_settings, tools, output_schema,
-        handoffs, tracing, *, previous_response_id, conversation_id, prompt,
+        self,
+        system_instructions,
+        input,
+        model_settings,
+        tools,
+        output_schema,
+        handoffs,
+        tracing,
+        *,
+        previous_response_id,
+        conversation_id,
+        prompt,
     ):
         response = Response(
             id="resp_1",
@@ -112,9 +126,7 @@ class FakeModel(Model):
             tool_choice="auto",
             tools=[],
         )
-        yield ResponseCompletedEvent(
-            response=response, sequence_number=0, type="response.completed"
-        )
+        yield ResponseCompletedEvent(response=response, sequence_number=0, type="response.completed")
 
 
 def _stdio_servers(**spec):
@@ -193,9 +205,7 @@ async def _paused_run(engine, session_id="a"):
     """Run until the `add` tool (which requires approval) pauses the agent."""
     svc = AgentService(model=FakeModel())
     session = get_chat_session(session_id, engine, create_tables=True)
-    result = await svc.run(
-        "add 2 and 3", session, _stdio_servers(require_approval=["add"])
-    )
+    result = await svc.run("add 2 and 3", session, _stdio_servers(require_approval=["add"]))
     return svc, _paused(result)
 
 
@@ -240,7 +250,10 @@ async def test_resume_approved_runs_tool_and_keeps_history_clean():
         await engine.dispose()
     assert "5" in result.final_output and not result.interruptions
     assert [i.get("type") or i.get("role") for i in items] == [
-        "user", "function_call", "function_call_output", "message",
+        "user",
+        "function_call",
+        "function_call_output",
+        "message",
     ], items
     assert getattr(servers[0], "session", None) is None, "server not cleaned up"
 
@@ -272,9 +285,7 @@ async def test_resume_rejects_mismatched_decisions():
             [ApprovalDecision(approval.id, True)] * 2,
         ):
             try:
-                await svc.resume(
-                    paused, decisions, None, _stdio_servers(require_approval=["add"])
-                )
+                await svc.resume(paused, decisions, None, _stdio_servers(require_approval=["add"]))
             except ApprovalError:
                 continue
             raise AssertionError(f"expected ApprovalError for {decisions}")

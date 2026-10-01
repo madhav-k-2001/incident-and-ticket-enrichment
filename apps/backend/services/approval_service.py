@@ -156,9 +156,7 @@ class InMemoryPendingApprovalStore:
 _E = TypeVar("_E")
 
 
-async def park_paused_run(
-    events: AsyncIterator[_E], session_id: str, store: PendingApprovalStore
-) -> AsyncIterator[_E]:
+async def park_paused_run(events: AsyncIterator[_E], session_id: str, store: PendingApprovalStore) -> AsyncIterator[_E]:
     """Pass events through, saving the paused run in ``store`` if the stream pauses."""
     async for event in events:
         if isinstance(event, PausedRun):

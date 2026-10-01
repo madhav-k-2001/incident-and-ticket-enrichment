@@ -39,14 +39,22 @@ class Suite:
 
 
 SUITES = [
-    Suite("backend", "Chat API: auth, config, approvals, streaming, MCP loading, agent service",
-          "apps/backend", own_venv=False),
-    Suite("simulator", "Alarm & ticketing simulator API",
-          "apps/alarms_and_ticket_simulation_api", pythonpath=(".",), own_venv=False),
+    Suite(
+        "backend",
+        "Chat API: auth, config, approvals, streaming, MCP loading, agent service",
+        "apps/backend",
+        own_venv=False,
+    ),
+    Suite(
+        "simulator",
+        "Alarm & ticketing simulator API",
+        "apps/alarms_and_ticket_simulation_api",
+        pythonpath=(".",),
+        own_venv=False,
+    ),
     Suite("alarm-mcp", "Alarm management MCP server", "mcp_servers/alarm-management", pythonpath=("src",)),
     Suite("ticketing-mcp", "Ticketing MCP server", "mcp_servers/ticketing", pythonpath=("src",)),
-    Suite("knowledge-base-mcp", "Knowledge base (RAG) MCP server", "mcp_servers/knowledge-base",
-          pythonpath=("src",)),
+    Suite("knowledge-base-mcp", "Knowledge base (RAG) MCP server", "mcp_servers/knowledge-base", pythonpath=("src",)),
     Suite("ingestion", "Document ingestion service (slow: includes the end-to-end test)", "ingestion"),
 ]
 
@@ -105,8 +113,14 @@ def run_suite(suite: Suite, extra: list[str], verbose: bool) -> Result:
     if verbose:
         print(f"\n=== {suite.name}: {' '.join(cmd)}", flush=True)
     proc = subprocess.Popen(
-        cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace",
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     lines: list[str] = []
     assert proc.stdout is not None
@@ -135,7 +149,7 @@ def main() -> int:
     extra: list[str] = []
     if "--" in argv:
         split = argv.index("--")
-        argv, extra = argv[:split], argv[split + 1:]
+        argv, extra = argv[:split], argv[split + 1 :]
     args = parser.parse_args(argv)
 
     by_name = {s.name: s for s in SUITES}

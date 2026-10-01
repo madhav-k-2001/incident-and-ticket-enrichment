@@ -21,10 +21,10 @@ def generate_mock_embedding(text: str, dimension: int = 768) -> List[float]:
     # Create seed from text hash
     h = hashlib.sha256(text.encode("utf-8")).digest()
     rng = random.Random(int.from_bytes(h[:8], "big"))
-    
+
     # Generate random vector
     vector = [rng.gauss(0, 1) for _ in range(dimension)]
-    
+
     # Normalize to unit length (L2 norm = 1.0)
     norm = math.sqrt(sum(x * x for x in vector))
     if norm > 0:
@@ -41,6 +41,7 @@ class EmbedderService:
         if self.settings.GEMINI_API_KEY and self.settings.GEMINI_API_KEY != "your_gemini_api_key_here":
             try:
                 from google import genai
+
                 self.client = genai.Client(api_key=self.settings.GEMINI_API_KEY)
                 logger.info(f"Initialized Google GenAI client with model: {self.settings.GEMINI_EMBEDDING_MODEL}")
             except Exception as e:
@@ -59,13 +60,15 @@ class EmbedderService:
 
         # If running in mock/test mode without API key
         if not self.client:
-            logger.info(f"Generating mock embeddings for {len(texts)} texts (dimension: {self.settings.EMBEDDING_DIMENSION})")
+            logger.info(
+                f"Generating mock embeddings for {len(texts)} texts (dimension: {self.settings.EMBEDDING_DIMENSION})"
+            )
             return [generate_mock_embedding(t, self.settings.EMBEDDING_DIMENSION) for t in texts]
 
         from google.genai import types
 
         total_tokens = sum(estimate_tokens(t) for t in texts)
-        
+
         # 1. Acquire rate limit budget
         acquired = self.rate_limiter.acquire(tokens=total_tokens, requests=1, max_wait=300.0)
         if not acquired:
@@ -78,19 +81,12 @@ class EmbedderService:
         for attempt in range(max_retries):
             try:
                 # Wrap each text into a Content object so gemini-embedding-2 returns separate embeddings
-                contents = [
-                    types.Content(parts=[types.Part.from_text(text=t)])
-                    for t in texts
-                ]
+                contents = [types.Content(parts=[types.Part.from_text(text=t)]) for t in texts]
 
-                config = types.EmbedContentConfig(
-                    output_dimensionality=self.settings.EMBEDDING_DIMENSION
-                )
+                config = types.EmbedContentConfig(output_dimensionality=self.settings.EMBEDDING_DIMENSION)
 
                 response = self.client.models.embed_content(
-                    model=self.settings.GEMINI_EMBEDDING_MODEL,
-                    contents=contents,
-                    config=config
+                    model=self.settings.GEMINI_EMBEDDING_MODEL, contents=contents, config=config
                 )
 
                 embeddings = []
@@ -104,7 +100,9 @@ class EmbedderService:
                     return embeddings
                 elif len(embeddings) == 1 and len(texts) > 1:
                     # Fallback if model aggregated contents: call individually with rate limiting
-                    logger.warning("Embedding model returned single aggregated embedding; falling back to per-item requests.")
+                    logger.warning(
+                        "Embedding model returned single aggregated embedding; falling back to per-item requests."
+                    )
                     return self._embed_individually(texts)
                 else:
                     return embeddings
@@ -112,14 +110,18 @@ class EmbedderService:
             except Exception as e:
                 err_str = str(e).lower()
                 is_rate_limited = "429" in err_str or "quota" in err_str or "resource_exhausted" in err_str
-                
+
                 if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt) + random.uniform(0.5, 2.0)
+                    delay = base_delay * (2**attempt) + random.uniform(0.5, 2.0)
                     if is_rate_limited:
                         delay = max(delay, 20.0)  # Wait longer on 429
-                        logger.warning(f"Rate limit 429 hit on Gemini API (attempt {attempt + 1}/{max_retries}). Backing off {delay:.1f}s...")
+                        logger.warning(
+                            f"Rate limit 429 hit on Gemini API (attempt {attempt + 1}/{max_retries}). Backing off {delay:.1f}s..."
+                        )
                     else:
-                        logger.warning(f"Transient error calling Gemini API: {e} (attempt {attempt + 1}/{max_retries}). Retrying in {delay:.1f}s...")
+                        logger.warning(
+                            f"Transient error calling Gemini API: {e} (attempt {attempt + 1}/{max_retries}). Retrying in {delay:.1f}s..."
+                        )
                     time.sleep(delay)
                 else:
                     logger.error(f"Failed to get embeddings after {max_retries} attempts: {e}")
@@ -130,6 +132,7 @@ class EmbedderService:
     def _embed_individually(self, texts: List[str]) -> List[List[float]]:
         """Fallback method embedding texts individually while respecting rate limits."""
         from google.genai import types
+
         results = []
         config = types.EmbedContentConfig(output_dimensionality=self.settings.EMBEDDING_DIMENSION)
 
@@ -137,9 +140,7 @@ class EmbedderService:
             tokens = estimate_tokens(text)
             self.rate_limiter.acquire(tokens=tokens, requests=1)
             response = self.client.models.embed_content(
-                model=self.settings.GEMINI_EMBEDDING_MODEL,
-                contents=text,
-                config=config
+                model=self.settings.GEMINI_EMBEDDING_MODEL, contents=text, config=config
             )
             if hasattr(response, "embedding") and response.embedding:
                 results.append(list(response.embedding.values))

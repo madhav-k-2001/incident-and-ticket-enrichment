@@ -1,10 +1,5 @@
 import pytest
-from worker.chunker import (
-    estimate_tokens,
-    split_text_recursive,
-    chunk_document_sections,
-    create_adaptive_batches
-)
+from worker.chunker import estimate_tokens, split_text_recursive, chunk_document_sections, create_adaptive_batches
 
 
 def test_estimate_tokens():
@@ -44,10 +39,7 @@ def test_chunk_document_sections():
 
 def test_create_adaptive_batches():
     # Create 50 small dummy chunks
-    chunks = [
-        {"chunk_index": i, "content": f"Chunk number {i} text", "estimated_tokens": 100}
-        for i in range(50)
-    ]
+    chunks = [{"chunk_index": i, "content": f"Chunk number {i} text", "estimated_tokens": 100} for i in range(50)]
 
     # Batch with max size 10, target tokens 600
     # Each chunk has 100 tokens, so 6 chunks = 600 tokens -> should split around 6 chunks

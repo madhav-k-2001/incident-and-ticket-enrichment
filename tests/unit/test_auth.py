@@ -43,9 +43,7 @@ def test_auth_disabled_when_no_keys(monkeypatch):
     assert make_client(monkeypatch, "").get("/protected").status_code == 200
 
 
-@pytest.mark.parametrize(
-    "path", ["/chat", "/chat/stream", "/chat/approvals", "/chat/approvals/stream"]
-)
+@pytest.mark.parametrize("path", ["/chat", "/chat/stream", "/chat/approvals", "/chat/approvals/stream"])
 def test_all_chat_routes_require_key(monkeypatch, path):
     from apps.backend.app.main import app
 

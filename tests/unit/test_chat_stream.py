@@ -34,9 +34,7 @@ class FakeModel(Model):
     """Calls the ``add`` tool if offered, then streams its result as text deltas."""
 
     def _output(self, input, tools):
-        tool_result = next(
-            (i for i in input if i.get("type") == "function_call_output"), None
-        )
+        tool_result = next((i for i in input if i.get("type") == "function_call_output"), None)
         if tool_result is None:
             if any(getattr(t, "name", "") == "add" for t in tools):
                 return [
@@ -66,19 +64,40 @@ class FakeModel(Model):
         raise NotImplementedError
 
     async def stream_response(
-        self, system_instructions, input, model_settings, tools, output_schema,
-        handoffs, tracing, *, previous_response_id, conversation_id, prompt,
+        self,
+        system_instructions,
+        input,
+        model_settings,
+        tools,
+        output_schema,
+        handoffs,
+        tracing,
+        *,
+        previous_response_id,
+        conversation_id,
+        prompt,
     ):
         output, deltas = self._output(input, tools)
         for n, delta in enumerate(deltas):
             yield ResponseTextDeltaEvent(
-                content_index=0, delta=delta, item_id="msg_1", logprobs=[],
-                output_index=0, sequence_number=n, type="response.output_text.delta",
+                content_index=0,
+                delta=delta,
+                item_id="msg_1",
+                logprobs=[],
+                output_index=0,
+                sequence_number=n,
+                type="response.output_text.delta",
             )
         yield ResponseCompletedEvent(
             response=Response(
-                id="resp_1", created_at=0.0, model="fake", object="response",
-                output=output, parallel_tool_calls=False, tool_choice="auto", tools=[],
+                id="resp_1",
+                created_at=0.0,
+                model="fake",
+                object="response",
+                output=output,
+                parallel_tool_calls=False,
+                tool_choice="auto",
+                tools=[],
             ),
             sequence_number=99,
             type="response.completed",
@@ -113,17 +132,13 @@ async def client(monkeypatch):
         }
     )
     app.state.agent_service = AgentService(model=FakeModel())
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c
     await engine.dispose()
 
 
 async def _post(client, message="add 2 and 3", session_id="s1"):
-    return await client.post(
-        "/chat/stream", json={"session_id": session_id, "message": message}
-    )
+    return await client.post("/chat/stream", json={"session_id": session_id, "message": message})
 
 
 async def test_streams_text_tool_calls_and_done(client):

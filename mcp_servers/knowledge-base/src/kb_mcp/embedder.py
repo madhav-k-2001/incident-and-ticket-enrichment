@@ -74,7 +74,9 @@ class GeminiEmbedder:
                 )
             except Exception as exc:  # SDK raises a variety of transport/API errors
                 if attempt > self._max_retries:
-                    logger.error("embedding_failed", extra={"fields": {"attempt": attempt, "error": type(exc).__name__}})
+                    logger.error(
+                        "embedding_failed", extra={"fields": {"attempt": attempt, "error": type(exc).__name__}}
+                    )
                     raise UnavailableError("The embedding service is unreachable or rejected the request.") from exc
                 logger.warning("embedding_retry", extra={"fields": {"attempt": attempt, "error": type(exc).__name__}})
                 await asyncio.sleep(0.5 * 2 ** (attempt - 1))

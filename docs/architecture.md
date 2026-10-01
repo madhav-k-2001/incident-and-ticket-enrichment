@@ -4,7 +4,7 @@
 
 The Incident & Ticket Enrichment Copilot assists plant operators in investigating alarms, referencing troubleshooting procedures, and drafting support tickets through a natural language interface. 
 
-The architecture separates user interaction, intelligent orchestration, tool execution via two dedicated Model Context Protocol (MCP) servers, and downstream data/persistence systems.
+The architecture separates user interaction, intelligent orchestration, tool execution via three dedicated Model Context Protocol (MCP) servers, and downstream data/persistence systems.
 
 ---
 
@@ -15,20 +15,24 @@ flowchart LR
     User["👤 User"]
     Frontend["Frontend GUI"]
     Copilot["Copilot Orchestrator"]
-    MCPServer1["Alarm & Docs MCP Server"]
-    MCPServer2["Ticketing MCP Server"]
+    AlarmMCP["Alarm MCP Server"]
+    TicketMCP["Ticketing MCP Server"]
+    KBMCP["Knowledge Base MCP Server"]
     AlarmAPI["Alarm Management API"]
     PostgresDB[("PostgreSQL Database\n(pgvector)")]
     TicketingAPI["Ticketing API"]
+    Ingestion["Ingestion Pipeline\n(Redis + Worker + Gemini)"]
 
     User --> Frontend
     Frontend --> Copilot
-    Copilot --> MCPServer1
-    Copilot --> MCPServer2
+    Copilot --> AlarmMCP
+    Copilot --> TicketMCP
+    Copilot --> KBMCP
     Copilot -->|"Chat History"| PostgresDB
-    MCPServer1 --> AlarmAPI
-    MCPServer1 -->|"Vectors"| PostgresDB
-    MCPServer2 --> TicketingAPI
+    AlarmMCP --> AlarmAPI
+    TicketMCP --> TicketingAPI
+    KBMCP -->|"Vectors"| PostgresDB
+    Ingestion -->|"Chunks + Embeddings"| PostgresDB
 ```
 
 ---
@@ -46,42 +50,51 @@ flowchart LR
 
 ### 3.3 Copilot Orchestrator
 * Serves as the central reasoning and decision-making engine.
-* Interprets user intent and decides which tools to call across the two MCP servers.
+* Interprets user intent and decides which tools to call across the three MCP servers.
 * Directly connects to the **PostgreSQL Database** to store and retrieve conversational **Chat History** for multi-turn session context.
 * Coordinates multi-step tool execution (retrieving alarms, finding documentation, checking past tickets).
 * Combines structured telemetry data and unstructured documentation into grounded responses with citations.
 
-### 3.4 Alarm & Docs MCP Server
-* Exposes tools related to alarm operations and procedural documentation to the Copilot.
-* Connects directly to two backend systems:
-  1. **Alarm Management API**: Executes tools for asset search, alarm telemetry retrieval, summaries, priority scores, and operator recommendations.
-  2. **PostgreSQL Database (pgvector)**: Executes tools that query **Vectors** to perform similarity searches across embedded troubleshooting guides, standard operating procedures (SOPs), and manuals.
+### 3.4 Alarm MCP Server
+* Exposes alarm tools to the Copilot: asset search, alarm telemetry retrieval, summaries, priority scores, and operator recommendations.
+* Connects directly to the **Alarm Management API**.
 
 ### 3.5 Alarm Management API
 * Backend source system providing real-time and historical plant telemetry, asset hierarchy, alarm states, and analytical calculations.
 
-### 3.6 PostgreSQL Database (pgvector)
-* Central persistence layer serving two distinct responsibilities:
-  1. **Chat History**: Directly accessed by the Copilot Orchestrator to persist conversational messages and session context.
-  2. **Vectors**: Accessed by the Alarm & Docs MCP Server to store and query document embeddings for semantic search via the `pgvector` extension.
-
-### 3.7 Ticketing MCP Server
+### 3.6 Ticketing MCP Server
 * Exposes tools related to incident ticket management to the Copilot.
 * Connects directly to the **Ticketing API**:
   * Executes tools for searching similar past tickets.
   * Executes tools for creating new incident tickets.
 
-### 3.8 Ticketing API
+### 3.7 Ticketing API
 * Backend system of record for incident management, handling ticket search, creation, and persistence.
+
+### 3.8 Knowledge Base MCP Server
+* Exposes read-only tools for retrieving troubleshooting guides, standard operating procedures (SOPs), and manuals.
+* Connects directly to the **PostgreSQL Database (pgvector)** to run similarity searches over the **Vectors**.
+
+### 3.9 PostgreSQL Database (pgvector)
+* Central persistence layer serving two distinct responsibilities:
+  1. **Chat History**: Directly accessed by the Copilot Orchestrator to persist conversational messages and session context.
+  2. **Vectors**: Written by the Ingestion Pipeline and queried by the Knowledge Base MCP Server for semantic search via the `pgvector` extension.
+
+### 3.10 Ingestion Pipeline
+* Prepares the knowledge base. It runs separately from the chat flow.
+* Parses and chunks documents, embeds them with Gemini (jobs are queued through Redis and handled by a worker), and writes the chunks and embeddings to the PostgreSQL Database (pgvector).
+* See [`ingestion/README.md`](../ingestion/README.md) for details.
 
 ---
 
 ## 4. End-to-End Interaction Flow
 
+> **Prerequisite**: SOPs and troubleshooting guides are ingested beforehand by the **Ingestion Pipeline**.
+
 1. **Request & Session Context**: The User enters a request into the Frontend GUI (e.g., *"Prepare an incident for the highest-priority active alarm in EastRefinery"*). The Copilot Orchestrator records and retrieves previous session turns via its **Chat History** connection to the **PostgreSQL Database**.
 2. **Orchestration**: The Copilot Orchestrator identifies the required steps and coordinates tool execution:
-   * Calls **Alarm & Docs MCP Server** to query the **Alarm Management API** for active alarms, asset details, and priority scoring.
-   * Calls **Alarm & Docs MCP Server** to query **Vectors** in the **PostgreSQL Database (pgvector)** for relevant troubleshooting procedures and SOPs.
+   * Calls **Alarm MCP Server** to query the **Alarm Management API** for active alarms, asset details, and priority scoring.
+   * Calls **Knowledge Base MCP Server** to query **Vectors** in the **PostgreSQL Database (pgvector)** for relevant troubleshooting procedures and SOPs.
    * Calls **Ticketing MCP Server** to search the **Ticketing API** for similar historical tickets.
 3. **Draft & Review**: The Copilot synthesizes the gathered context into a structured incident draft with source citations and presents it to the User via the Frontend GUI.
 4. **Confirmation & Creation**: The User reviews the draft and approves ticket creation. The Copilot calls the **Ticketing MCP Server**, which invokes the **Ticketing API** to create the ticket and returns the confirmation to the User.

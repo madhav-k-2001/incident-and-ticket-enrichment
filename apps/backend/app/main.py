@@ -48,6 +48,9 @@ settings = get_settings()
 # Static chat UI (apps/frontend), served at /ui so it shares the API's origin.
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
+# Agent system prompt. Keep it static: anything per-request breaks the prompt cache.
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "system_prompt.md"
+
 logging.basicConfig(
     level=settings.LOG_LEVEL,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -69,6 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = engine
     app.state.agent_service = AgentService(
         name=settings.AGENT_NAME,
+        instructions=SYSTEM_PROMPT_PATH.read_text(encoding="utf-8"),
         model=settings.AGENT_MODEL,
         max_turns=settings.AGENT_MAX_TURNS,
     )

@@ -4,11 +4,11 @@ The copilot answers from plant documents (SOPs, troubleshooting guides, KB artic
 
 ```mermaid
 flowchart LR
-    Docs["Documents<br/>PDF / DOCX / MD"] --> API["Ingestion API<br/>:8000"]
+    Docs["Documents<br/>PDF / DOCX / MD"] --> API["Ingestion API<br/>:9000"]
     API -->|"job id"| Redis[("Redis queue")]
     Redis --> Worker["Ingestion worker<br/>parse → chunk → embed"]
     Worker -->|"Gemini embeddings"| PG[("PostgreSQL + pgvector")]
-    Backend["Copilot backend"] -->|"MCP"| KB["Knowledge Base<br/>MCP server :8103"]
+    Backend["Copilot backend"] -->|"MCP"| KB["Knowledge Base<br/>MCP server :9103"]
     KB -->|"read-only SQL"| PG
 ```
 
@@ -22,7 +22,7 @@ flowchart LR
 
 ## 2. Ingestion
 
-1. **Upload.** Files are sent to `POST /upload` (or the web portal at `http://localhost:8000`). Unsupported types are rejected. A `documents` row is created with status `PENDING` and the document id is pushed to a Redis queue.
+1. **Upload.** Files are sent to `POST /upload` (or the web portal at `http://localhost:9000`). Unsupported types are rejected. A `documents` row is created with status `PENDING` and the document id is pushed to a Redis queue.
 2. **Parse** (`PARSING`). Text is extracted per section: `pypdf` for PDF (one section per page), `python-docx` for DOCX (paragraphs and tables), and heading-based splitting for Markdown (`# … ######`).
 3. **Chunk.** Recursive split at paragraph, line, sentence, then word boundaries: about **1000 characters with 150 characters of overlap**. Markdown sub-chunks are prefixed with their heading path (`[Intro > Setup]`) so each chunk is self-describing.
 4. **Embed** (`PROCESSING`). `gemini-embedding-2-preview`, **768 dimensions**. Chunks are sent in batches (up to 30 chunks / about 6000 tokens) behind a Redis rate limiter that stays under the Gemini quota (80 requests/min, 24k tokens/min, 950 requests/day). Without `GEMINI_API_KEY`, deterministic mock vectors are used so everything still runs offline.
@@ -44,7 +44,7 @@ Chunk metadata used for citations: `filename`, `chunk_index`, `page_number`.
 cd ingestion
 cp .env.example .env          # set GEMINI_API_KEY (optional; mock mode if empty)
 docker compose up -d          # API + worker + Postgres (5434) + Redis (6380)
-# upload test_data/rag_data/**/*.md in the portal at http://localhost:8000
+# upload test_data/rag_data/**/*.md in the portal at http://localhost:9000
 ```
 
 Re-ingesting a changed document means deleting it (`DELETE /documents/{id}`) and uploading it again.

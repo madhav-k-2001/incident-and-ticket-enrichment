@@ -4,9 +4,9 @@ Three MCP servers (streamable HTTP, `/mcp`) expose 14 tools. The copilot calls t
 
 | Server | Port | Source system | Tools |
 |---|---|---|---|
-| `alarm-management` | 8101 | Alarm Management API | `search_assets`, `list_alarms`, `get_alarm_context`, `analyze_alarms`, `find_correlated_alarms` |
-| `ticketing` | 8102 | Ticketing API | `find_tickets`, `search_similar_tickets`, `create_ticket`, `update_ticket` |
-| `knowledge-base` | 8103 | PostgreSQL + pgvector (RAG) | `search_knowledge_base`, `list_documents`, `read_document`, `get_chunk_context`, `get_knowledge_base_status` |
+| `alarm-management` | 9101 | Alarm Management API | `search_assets`, `list_alarms`, `get_alarm_context`, `analyze_alarms`, `find_correlated_alarms` |
+| `ticketing` | 9102 | Ticketing API | `find_tickets`, `search_similar_tickets`, `create_ticket`, `update_ticket` |
+| `knowledge-base` | 9103 | PostgreSQL + pgvector (RAG) | `search_knowledge_base`, `list_documents`, `read_document`, `get_chunk_context`, `get_knowledge_base_status` |
 
 Start a server on its own: see each server's README in `mcp_servers/<name>/`.
 

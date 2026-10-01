@@ -23,10 +23,7 @@ PING = "Reply with the single word: pong. Do not call any tools."
 
 def _reject_all(client: httpx.Client, session_id: str, approvals: list[dict]) -> None:
     """Leave no side effects: reject every tool call a paused run is waiting on."""
-    decisions = [
-        {"approval_id": a["approval_id"], "approved": False, "reason": "e2e test"}
-        for a in approvals
-    ]
+    decisions = [{"approval_id": a["approval_id"], "approved": False, "reason": "e2e test"} for a in approvals]
     r = client.post("/chat/approvals", json={"session_id": session_id, "decisions": decisions})
     assert r.status_code == 200, r.text
 

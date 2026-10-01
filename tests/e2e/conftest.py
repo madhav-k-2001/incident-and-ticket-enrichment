@@ -68,9 +68,9 @@ def _parse_sse(response: httpx.Response) -> list[tuple[str, dict]]:
         name, data = None, None
         for line in frame.splitlines():
             if line.startswith("event:"):
-                name = line[len("event:"):].strip()
+                name = line[len("event:") :].strip()
             elif line.startswith("data:"):
-                data = json.loads(line[len("data:"):].strip())
+                data = json.loads(line[len("data:") :].strip())
         if name is not None:
             events.append((name, data))
     return events

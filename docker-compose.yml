@@ -27,7 +27,7 @@ services:
     build:
       context: ./mcp_servers/alarm-management
     ports:
-      - "8101:8100"
+      - "9101:8100"
     environment:
       ALARM_API_BASE_URL: http://alarm-simulator:8000
       ALARM_API_TOKEN: ${ALARM_API_TOKEN:-demo-token}
@@ -47,7 +47,7 @@ services:
     build:
       context: ./mcp_servers/ticketing
     ports:
-      - "8102:8100"
+      - "9102:8100"
     environment:
       TICKETING_API_BASE_URL: http://alarm-simulator:8000
       TICKETING_API_TOKEN: ${TICKETING_API_TOKEN:-demo-token}
@@ -68,7 +68,7 @@ services:
     build:
       context: ./mcp_servers/knowledge-base
     ports:
-      - "8103:8100"
+      - "9103:8100"
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -93,7 +93,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     ports:
-      - "8200:8200"
+      - "9200:8200"
     env_file:
       - .env
     environment:

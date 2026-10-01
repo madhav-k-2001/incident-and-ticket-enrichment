@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -182,6 +182,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def resolve_trace_id(request: Request) -> Optional[str]:
+    """Trace id from either spelling. FastAPI's Header() only reads 'trace-id', but
+    the Postman collections and the alarm MCP client send 'trace_id'."""
+    return request.headers.get("trace_id") or request.headers.get("trace-id")
 
 @app.middleware("http")
 async def add_trace_headers_middleware(request: Request, call_next):
@@ -364,7 +369,7 @@ def get_alarm_by_id(alarm_id: str):
 @app.post("/alarms/summary", tags=["Alarms"])
 def get_alarm_summary(
     payload: AlarmSummaryRequest,
-    trace_id: Optional[str] = Header(default=None),
+    trace_id: Optional[str] = Depends(resolve_trace_id),
     x_client_id: Optional[str] = Header(default=None),
     x_metadata_tag: Optional[str] = Header(default=None)
 ):
@@ -432,7 +437,7 @@ def get_alarm_trends(payload: AlarmTrendsRequest):
 @app.post("/alarms/correlation", tags=["Alarms"])
 def get_alarm_correlation(
     payload: AlarmCorrelationRequest,
-    trace_id: Optional[str] = Header(default=None),
+    trace_id: Optional[str] = Depends(resolve_trace_id),
     x_client_id: Optional[str] = Header(default=None),
     x_metadata_tag: Optional[str] = Header(default=None)
 ):
@@ -506,7 +511,7 @@ def get_priority_score(payload: PriorityScoreRequest):
 @app.post("/recommendations/operator-actions", tags=["Alarms"])
 def get_operator_recommendations(
     payload: OperatorRecommendationsRequest,
-    trace_id: Optional[str] = Header(default=None),
+    trace_id: Optional[str] = Depends(resolve_trace_id),
     x_client_id: Optional[str] = Header(default=None),
     x_metadata_tag: Optional[str] = Header(default=None)
 ):
@@ -550,7 +555,7 @@ def generate_calculation_code(payload: CalculationGenerateRequest):
 @app.post("/calculation-code/execute", tags=["Analytics"])
 def execute_calculation_code(
     payload: CalculationExecuteRequest,
-    trace_id: Optional[str] = Header(default=None),
+    trace_id: Optional[str] = Depends(resolve_trace_id),
     x_client_id: Optional[str] = Header(default=None),
     x_metadata_tag: Optional[str] = Header(default=None)
 ):
@@ -655,7 +660,7 @@ def get_ticket_by_id(ticket_id: str):
 @app.post("/tickets", status_code=status.HTTP_201_CREATED, tags=["Ticketing"])
 def create_ticket(
     payload: TicketCreateRequest,
-    trace_id: Optional[str] = Header(default=None)
+    trace_id: Optional[str] = Depends(resolve_trace_id)
 ):
     """
     Create a new incident ticket.

@@ -35,11 +35,7 @@ class Settings(BaseSettings):
     MAX_BATCH_SIZE: int = 30
     TARGET_BATCH_TOKENS: int = 6000
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def database_url(self) -> str:
@@ -48,7 +44,7 @@ class Settings(BaseSettings):
             # SQLAlchemy needs an explicit driver; Neon hands out postgres:// / postgresql://
             for prefix in ("postgresql://", "postgres://"):
                 if url.startswith(prefix):
-                    url = "postgresql+psycopg2://" + url[len(prefix):]
+                    url = "postgresql+psycopg2://" + url[len(prefix) :]
             return url
         return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 

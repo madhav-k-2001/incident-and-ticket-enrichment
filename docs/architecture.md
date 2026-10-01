@@ -10,6 +10,10 @@ The architecture separates user interaction, intelligent orchestration, tool exe
 
 ## 2. Architecture Diagram
 
+![Architecture diagram](architecture-diagram.png)
+
+Editable source: [architecture-diagram.drawio](architecture-diagram.drawio) (open in [diagrams.net](https://app.diagrams.net)). Simplified view:
+
 ```mermaid
 flowchart LR
     User["User"] --> UI["Frontend GUI<br/>/ui/"]

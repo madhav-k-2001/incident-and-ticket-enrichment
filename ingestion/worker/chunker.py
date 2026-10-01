@@ -21,11 +21,7 @@ def estimate_tokens(text: str) -> int:
     return max(char_est, word_est, 1)
 
 
-def split_text_recursive(
-    text: str,
-    max_chunk_size: int = 1000,
-    overlap: int = 150
-) -> List[str]:
+def split_text_recursive(text: str, max_chunk_size: int = 1000, overlap: int = 150) -> List[str]:
     """
     Recursively splits text into chunks of at most `max_chunk_size` characters,
     with an overlap of `overlap` characters, respecting semantic boundaries.
@@ -95,9 +91,7 @@ def split_text_recursive(
 
 
 def chunk_document_sections(
-    sections: List[Dict[str, Any]],
-    chunk_size: int = None,
-    chunk_overlap: int = None
+    sections: List[Dict[str, Any]], chunk_size: int = None, chunk_overlap: int = None
 ) -> List[Dict[str, Any]]:
     """
     Takes parsed document sections: [{"page_number": int, "text": str}]
@@ -119,28 +113,25 @@ def chunk_document_sections(
         # so prefix the heading path to keep each chunk self-describing.
         heading = sec.get("heading")
         if heading:
-            text_chunks = [
-                c if i == 0 else f"[{heading}]\n{c}"
-                for i, c in enumerate(text_chunks)
-            ]
+            text_chunks = [c if i == 0 else f"[{heading}]\n{c}" for i, c in enumerate(text_chunks)]
 
         for text in text_chunks:
-            all_chunks.append({
-                "chunk_index": chunk_index,
-                "page_number": page_num,
-                "content": text,
-                "char_count": len(text),
-                "estimated_tokens": estimate_tokens(text)
-            })
+            all_chunks.append(
+                {
+                    "chunk_index": chunk_index,
+                    "page_number": page_num,
+                    "content": text,
+                    "char_count": len(text),
+                    "estimated_tokens": estimate_tokens(text),
+                }
+            )
             chunk_index += 1
 
     return all_chunks
 
 
 def create_adaptive_batches(
-    chunks: List[Dict[str, Any]],
-    max_batch_size: int = None,
-    target_batch_tokens: int = None
+    chunks: List[Dict[str, Any]], max_batch_size: int = None, target_batch_tokens: int = None
 ) -> List[List[Dict[str, Any]]]:
     """
     Groups chunks into rate-limit-optimized batches.

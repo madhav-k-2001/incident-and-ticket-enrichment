@@ -54,7 +54,9 @@ def create_server(settings: Settings, *, transport: httpx.AsyncBaseTransport | N
         ticket_id: Annotated[
             TicketId | None, Field(description="Exact ticket id, e.g. 'INC-1042'. When set, other filters are ignored.")
         ] = None,
-        asset_ids: Annotated[list[str] | None, Field(description="Only tickets for these assets, e.g. correlated assets.")] = None,
+        asset_ids: Annotated[
+            list[str] | None, Field(description="Only tickets for these assets, e.g. correlated assets.")
+        ] = None,
         status: Status | None = None,
         severity: Severity | None = None,
         limit: Annotated[int, Field(ge=1, le=100)] = 20,

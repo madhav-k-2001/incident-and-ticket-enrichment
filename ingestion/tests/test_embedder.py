@@ -23,10 +23,7 @@ def test_mock_embedding_properties():
 
 def test_embedder_service_mock_mode():
     service = EmbedderService(rate_limiter=None)
-    texts = [
-        "First document paragraph",
-        "Second document paragraph with different words"
-    ]
+    texts = ["First document paragraph", "Second document paragraph with different words"]
     embeddings = service.embed_texts(texts)
     assert len(embeddings) == 2
     assert len(embeddings[0]) == 768

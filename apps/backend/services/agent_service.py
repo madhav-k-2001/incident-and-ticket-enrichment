@@ -77,9 +77,7 @@ class AgentService:
         self._check_message(user_message)
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
-            return await Runner.run(
-                agent, user_message, session=session, max_turns=self.max_turns
-            )
+            return await Runner.run(agent, user_message, session=session, max_turns=self.max_turns)
 
     async def resume(
         self,
@@ -99,9 +97,7 @@ class AgentService:
         async with AsyncExitStack() as stack:
             agent = await self._build_agent(stack, mcp_servers)
             run_state = await self._restore_state(agent, paused, decisions)
-            return await Runner.run(
-                agent, run_state, session=session, max_turns=self.max_turns
-            )
+            return await Runner.run(agent, run_state, session=session, max_turns=self.max_turns)
 
     async def run_stream(
         self,
@@ -174,9 +170,7 @@ class AgentService:
         run_input: Union[str, RunState],
         session: Optional[Session],
     ) -> AsyncIterator[Union[StreamEvent, PausedRun]]:
-        streamed = Runner.run_streamed(
-            agent, run_input, session=session, max_turns=self.max_turns
-        )
+        streamed = Runner.run_streamed(agent, run_input, session=session, max_turns=self.max_turns)
         try:
             async for event in streamed.stream_events():
                 yield event
@@ -190,9 +184,7 @@ class AgentService:
             # consumer stopped early (e.g. the HTTP client disconnected).
             streamed.cancel()
 
-    async def _restore_state(
-        self, agent: Agent, paused: PausedRun, decisions: Sequence[ApprovalDecision]
-    ) -> RunState:
+    async def _restore_state(self, agent: Agent, paused: PausedRun, decisions: Sequence[ApprovalDecision]) -> RunState:
         decided = paused.check(decisions)
         run_state = await RunState.from_string(agent, paused.state)
         for item in run_state.get_interruptions():

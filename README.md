@@ -7,19 +7,49 @@ guides, and draft an incident ticket. **It creates or updates a ticket only afte
 The agent is built on the OpenAI Agents SDK. It reaches its data through three
 [MCP](https://modelcontextprotocol.io) servers, and it keeps chat history in PostgreSQL.
 
+- [Use case](#use-case)
+- [Main capabilities](#main-capabilities)
+- [Technology stack](#technology-stack)
 - [Architecture](#architecture)
+- [MCP servers and tools](#mcp-servers-and-tools)
+- [RAG corpus and ingestion](#rag-corpus-and-ingestion)
 - [Get started (Docker Compose)](#get-started-docker-compose)
 - [Environment file](#environment-file)
 - [Local dev setup](#local-dev-setup)
 - [Load the knowledge base](#load-the-knowledge-base)
-- [Using the app](#using-the-app)
-- [Run without Docker](#run-without-docker)
-- [Backend API](#backend-api)
-- [Authentication](#authentication)
 - [Tool approval](#tool-approval)
 - [Tests](#tests)
-- [Troubleshooting](#troubleshooting)
+- [Formatting](#formatting)
+- [Sample interactions](#sample-interactions)
+- [Assumptions](#assumptions)
+- [Known limitations](#known-limitations)
 - [Further reading](#further-reading)
+
+## Use case
+
+**Incident & Ticket Enrichment.** An operator asks about an alarm in plain language. The copilot gathers
+the alarm and asset data, similar past tickets and the applicable SOPs, then drafts a ticket for the
+operator to confirm.
+
+## Main capabilities
+
+- Find and rank active alarms, and get full context for one alarm (asset, priority, likely causes, actions)
+- Analyse recurring alarms and find correlated alarms across assets
+- Find similar historical tickets and their resolutions
+- Search SOPs, troubleshooting guides and safety documents, with citations
+- Draft an incident ticket and create or update it **only after operator approval**
+- Show each tool call live in the chat UI
+
+## Technology stack
+
+| Area | Tech |
+|---|---|
+| Backend | Python 3.12, FastAPI, OpenAI Agents SDK, SSE streaming |
+| MCP servers | Python MCP SDK (streamable HTTP), httpx, asyncpg, Pydantic |
+| Data | PostgreSQL + pgvector, Redis (ingestion queue) |
+| Embeddings | Gemini `gemini-embedding-2-preview` (768 dims) |
+| Frontend | Plain HTML / JavaScript chat UI |
+| Tooling | Docker Compose, uv, pytest |
 
 ## Architecture
 
@@ -48,6 +78,32 @@ flowchart LR
 
 The compose stack does **not** start a database. All services share one external PostgreSQL database
 (the project uses [Neon](https://neon.tech)) that has the `pgvector` extension available.
+
+## MCP servers and tools
+
+Three servers, all candidate-built. The copilot reaches every data source through them, never directly.
+Full schemas, errors and examples are in [docs/mcp-tool-catalog.md](docs/mcp-tool-catalog.md).
+
+| Server | Source | Tools |
+|---|---|---|
+| Alarm MCP | Alarm API | `search_assets`, `list_alarms`, `get_alarm_context`, `analyze_alarms`, `find_correlated_alarms` |
+| Ticketing MCP | Ticketing API | `find_tickets`, `search_similar_tickets`, `create_ticket`\*, `update_ticket`\* |
+| Knowledge Base MCP | pgvector | `search_knowledge_base`, `list_documents`, `read_document`, `get_chunk_context`, `get_knowledge_base_status` |
+
+\* write tools, need operator approval.
+
+Each server has typed inputs and outputs, validation, auth headers, trace ids, timeouts, retries and
+structured logs. Run one on its own: see its README, for example
+`cd mcp_servers/alarm-management && ALARM_API_TOKEN=demo-token MCP_TRANSPORT=streamable-http uv run alarm-mcp`.
+
+## RAG corpus and ingestion
+
+- **Corpus:** 9 synthetic Markdown documents in `test_data/rag_data/` (SOPs, troubleshooting guides, KB
+  articles, safety, escalation matrix).
+- **Ingestion:** upload (PDF, DOCX or MD), then parse, chunk (about 1000 characters, 150 overlap), embed with Gemini
+  and store in pgvector. See [Load the knowledge base](#load-the-knowledge-base).
+- **Retrieval:** hybrid search (vector plus full-text), results carry filename and page for citations.
+  Details in [docs/rag-design.md](docs/rag-design.md).
 
 ## Get started (Docker Compose)
 
@@ -200,8 +256,10 @@ Notes:
 ./scripts/dev-setup.sh
 ```
 
-It first checks that git, uv and Docker with Compose v2 are installed (it warns if Python 3.12+ is not on your PATH) and stops with a list of anything missing. It then creates `.env` from `.env.sample` (if missing), a root `.venv` with the backend, simulator and ingestion
+It first checks that git, uv, make and Docker with Compose v2 are installed (it warns if Python 3.12+ is not on your PATH) and stops with a list of anything missing. It then creates `.env` from `.env.sample` (if missing), a root `.venv` with the backend, simulator and ingestion
 dependencies, and a `.venv` in each MCP server. Then `python scripts/run_tests.py` runs every test suite.
+
+A [`Makefile`](Makefile) wraps the common commands: `make setup`, `make up`, `make down`, `make logs`, `make test`, `make format`. Run `make help` to list them.
 
 ## Load the knowledge base
 
@@ -285,9 +343,48 @@ Tests marked `llm` run real agent turns, so they need `OPENAI_API_KEY` on the se
 They never approve a tool call (a paused run is rejected), so no ticket is created or changed. Chat
 sessions they create stay in the database under ids starting with `e2e-`.
 
+## Formatting
+
+[Ruff](https://docs.astral.sh/ruff/) formats the Python code, configured in [`ruff.toml`](ruff.toml):
+
+```bash
+ruff format .          # format
+ruff format --check .  # check only
+```
+
+## Sample interactions
+
+| Operator asks | Copilot does |
+|---|---|
+| "Prepare an incident for the highest-priority active alarm in EastRefinery" | `list_alarms` → `get_alarm_context` → in parallel `search_similar_tickets`, `find_correlated_alarms`, `search_knowledge_base` → shows a cited draft, then asks to confirm before `create_ticket` |
+| "Find similar historical tickets for this compressor alarm" | `search_similar_tickets`, then compares each past cause and fix with the current alarm |
+| "Investigate recurring alarms on CMP-201 over 90 days" | `search_assets` → `analyze_alarms` + `find_correlated_alarms` → matching SOP with citations |
+
+## Assumptions
+
+- One site (East Refinery); alarm and ticket data come from the bundled simulator (Bearer `demo-token`).
+- Documents are synthetic samples with the same structure as real plant documents.
+- Relative time windows ("last 90 days") end at the newest alarm in the data, not today's date.
+- Operators are qualified; the copilot only recommends actions and never operates equipment.
+- One external PostgreSQL + pgvector database is shared by all services.
+
+## Known limitations
+
+- The compose stack needs an external PostgreSQL with pgvector and an OpenAI key.
+- Documents are ingested manually through the ingestion portal; there is no automatic index refresh.
+- Citations use filename and page or chunk; there is no section-level metadata or reranker.
+- Without a Gemini key, mock embeddings make semantic search meaningless.
+- The simulator is not a real source system, so there is no live data and ticket writes are not persisted beyond it.
+- Auth is a shared API key; there are no per-user roles.
+- Write approval is enforced by the backend. The ticketing MCP server alone does not ask for approval.
+
+See [docs/known-limitations.md](docs/known-limitations.md) for the full list.
+
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md): components and the end-to-end interaction flow
+- [docs/mcp-tool-catalog.md](docs/mcp-tool-catalog.md): every MCP tool, schema and example
+- [docs/rag-design.md](docs/rag-design.md): ingestion, retrieval and citations
 - [docs/chat-stream-protocol.md](docs/chat-stream-protocol.md): SSE events used by the streaming endpoints
 - [apps/backend/prompts/system_prompt.md](apps/backend/prompts/system_prompt.md): the agent's system prompt
 - READMEs for each component: [alarm MCP](mcp_servers/alarm-management/README.md),

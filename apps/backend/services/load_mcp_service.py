@@ -202,9 +202,7 @@ def _normalize_require_approval(value: Any, server_name: str) -> Any:
     """
     if isinstance(value, list):
         if not all(isinstance(t, str) and t for t in value):
-            raise ValueError(
-                f"Server '{server_name}': 'require_approval' must be a list of tool name strings."
-            )
+            raise ValueError(f"Server '{server_name}': 'require_approval' must be a list of tool name strings.")
         return {"always": {"tool_names": list(dict.fromkeys(value))}}
     if isinstance(value, (str, dict)):
         return value

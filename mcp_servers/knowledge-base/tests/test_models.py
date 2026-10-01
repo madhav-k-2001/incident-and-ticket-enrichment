@@ -6,7 +6,9 @@ from kb_mcp.models import Chunk, overlap_length, stitch_chunks
 
 
 def _chunk(index: int, content: str, page: int | None = 1) -> Chunk:
-    return Chunk(chunk_id=f"c{index}", document_id="d1", filename="f.pdf", chunk_index=index, page_number=page, content=content)
+    return Chunk(
+        chunk_id=f"c{index}", document_id="d1", filename="f.pdf", chunk_index=index, page_number=page, content=content
+    )
 
 
 # Taken verbatim from the ingestion chunker (split_text_recursive, size 300, overlap 60).

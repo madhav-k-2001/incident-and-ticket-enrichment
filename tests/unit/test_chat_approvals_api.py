@@ -33,9 +33,7 @@ def client(monkeypatch, tmp_path):
             }
         ),
     )
-    monkeypatch.setattr(
-        main, "AgentService", lambda **_kw: AgentService(model=FakeModel())
-    )
+    monkeypatch.setattr(main, "AgentService", lambda **_kw: AgentService(model=FakeModel()))
     with TestClient(main.app) as c:
         yield c
 
@@ -45,13 +43,8 @@ def _chat(client, session="s1", message="add 2 and 3"):
 
 
 def _decide(client, approvals, approved, session="s1", reason=None):
-    decisions = [
-        {"approval_id": a["approval_id"], "approved": approved, "reason": reason}
-        for a in approvals
-    ]
-    return client.post(
-        "/chat/approvals", json={"session_id": session, "decisions": decisions}
-    )
+    decisions = [{"approval_id": a["approval_id"], "approved": approved, "reason": reason} for a in approvals]
+    return client.post("/chat/approvals", json={"session_id": session, "decisions": decisions})
 
 
 def test_chat_pauses_then_approval_completes_turn(client):
@@ -118,9 +111,7 @@ def _stream_chat(client, session="s1", message="add 2 and 3"):
 
 def _stream_decide(client, approvals, approved, session="s1"):
     decisions = [{"approval_id": a["approval_id"], "approved": approved} for a in approvals]
-    return client.post(
-        "/chat/approvals/stream", json={"session_id": session, "decisions": decisions}
-    )
+    return client.post("/chat/approvals/stream", json={"session_id": session, "decisions": decisions})
 
 
 def test_stream_pauses_with_approval_required_then_resumes_streaming(client):

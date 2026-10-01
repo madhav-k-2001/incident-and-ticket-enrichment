@@ -38,10 +38,14 @@ CREATE INDEX ix_doc_chunk_embedding_hnsw ON document_chunks USING hnsw (embeddin
 """
 
 DOCS = {
-    "d-sop": ("SOP-CMP-201_Overpressure.pdf", "COMPLETED", [
-        "Confirm the discharge pressure alarm on compressor CMP-201.",
-        "Check the anti-surge valve position and recycle flow.",
-    ]),
+    "d-sop": (
+        "SOP-CMP-201_Overpressure.pdf",
+        "COMPLETED",
+        [
+            "Confirm the discharge pressure alarm on compressor CMP-201.",
+            "Check the anti-surge valve position and recycle flow.",
+        ],
+    ),
     "d-kb": ("KB-BFP-101-Plate-Cooler.pdf", "COMPLETED", ["Descale the lube oil plate cooler on BFP-101."]),
     "d-new": ("SAF-02.pdf", "PROCESSING", []),
 }
@@ -64,12 +68,20 @@ async def repo(settings: Settings):
     for doc_id, (filename, status, chunks) in DOCS.items():
         await conn.execute(
             "INSERT INTO documents VALUES ($1, $2, 'pdf', 10, '/srv/uploads/x', $3, $4, $4, NULL)",
-            doc_id, filename, status, len(chunks),
+            doc_id,
+            filename,
+            status,
+            len(chunks),
         )
         for i, text in enumerate(chunks):
             await conn.execute(
                 "INSERT INTO document_chunks VALUES ($1, $2, $3, 1, $4, $5, 1, $6::vector)",
-                f"{doc_id}-{i}", doc_id, i, text, len(text), _vector_literal(mock_embedding(text, 768)),
+                f"{doc_id}-{i}",
+                doc_id,
+                i,
+                text,
+                len(text),
+                _vector_literal(mock_embedding(text, 768)),
             )
     await conn.close()
 
@@ -106,7 +118,9 @@ async def test_semantic_search_finds_the_exact_chunk_first(repo: PgVectorReposit
     assert rows[0]["chunk_id"] == "d-sop-1"
     assert rows[0]["similarity"] == pytest.approx(1.0, abs=1e-5)
 
-    filtered = await repo.semantic_search(mock_embedding(text, 768), limit=3, document_ids=["d-kb"], filename_contains=None)
+    filtered = await repo.semantic_search(
+        mock_embedding(text, 768), limit=3, document_ids=["d-kb"], filename_contains=None
+    )
     assert [r["document_id"] for r in filtered] == ["d-kb"]
 
 

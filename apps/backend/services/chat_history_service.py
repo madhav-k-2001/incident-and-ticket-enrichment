@@ -21,8 +21,6 @@ def create_engine(settings: Settings) -> AsyncEngine:
     )
 
 
-def get_chat_session(
-    session_id: str, engine: AsyncEngine, *, create_tables: bool = False
-) -> SQLAlchemySession:
+def get_chat_session(session_id: str, engine: AsyncEngine, *, create_tables: bool = False) -> SQLAlchemySession:
     """History for one conversation; pass it to ``AgentService.run(session=...)``."""
     return SQLAlchemySession(session_id, engine=engine, create_tables=create_tables)

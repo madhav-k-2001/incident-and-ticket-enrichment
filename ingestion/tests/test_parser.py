@@ -34,9 +34,7 @@ def test_parse_markdown_sections(tmp_path):
     p = tmp_path / "doc.md"
     p.write_text(MD_SAMPLE, encoding="utf-8")
     secs = parse_markdown(str(p))
-    assert [s["heading"] for s in secs] == [
-        "", "Title", "Title > Setup", "Title > Usage", "Title > Usage > Advanced"
-    ]
+    assert [s["heading"] for s in secs] == ["", "Title", "Title > Setup", "Title > Usage", "Title > Usage > Advanced"]
     assert "# not a heading" in secs[2]["text"]
     assert [s["page_number"] for s in secs] == [1, 2, 3, 4, 5]
     assert parse_document(str(p)) == secs

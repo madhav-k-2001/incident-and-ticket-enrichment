@@ -165,7 +165,9 @@ async def test_database_outage_is_a_readable_tool_error(connect, repo: FakeRepos
         ("list_documents", {"status": "DONE"}),
     ],
 )
-async def test_invalid_input_is_rejected_before_querying(connect, repo: FakeRepository, tool: str, arguments: dict) -> None:
+async def test_invalid_input_is_rejected_before_querying(
+    connect, repo: FakeRepository, tool: str, arguments: dict
+) -> None:
     async with connect() as client:
         result = await client.call_tool(tool, arguments)
 

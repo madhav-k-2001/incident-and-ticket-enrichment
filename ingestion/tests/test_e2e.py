@@ -43,8 +43,15 @@ def test_end_to_end_pipeline(test_files):
             "/api/upload",
             files=[
                 ("files", ("gemini_guide.pdf", f_pdf.read(), "application/pdf")),
-                ("files", ("pgvector_notes.docx", f_docx.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
-            ]
+                (
+                    "files",
+                    (
+                        "pgvector_notes.docx",
+                        f_docx.read(),
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ),
+                ),
+            ],
         )
 
     assert upload_resp.status_code == 200
@@ -85,10 +92,7 @@ def test_end_to_end_pipeline(test_files):
         db.close()
 
     # 4. Verify Semantic Vector Search
-    search_resp = client.post(
-        "/api/search",
-        json={"query": "Gemini Embedding 2 dimensions", "top_k": 3}
-    )
+    search_resp = client.post("/api/search", json={"query": "Gemini Embedding 2 dimensions", "top_k": 3})
     assert search_resp.status_code == 200
     search_data = search_resp.json()
     assert search_data["results_count"] > 0

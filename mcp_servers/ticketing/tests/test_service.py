@@ -8,7 +8,9 @@ from ticketing_mcp.models import TicketChanges, TicketDraft
 from ticketing_mcp.service import TicketingService
 from tests.conftest import FakeTicketingApi
 
-DRAFT = TicketDraft(title="Compressor C-201 discharge overpressure", asset_id="CMP-201", severity="critical", priority="P1")
+DRAFT = TicketDraft(
+    title="Compressor C-201 discharge overpressure", asset_id="CMP-201", severity="critical", priority="P1"
+)
 
 
 @pytest.fixture

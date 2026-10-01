@@ -14,10 +14,7 @@ from app.services.embedder import EmbedderService
 from worker.parser import parse_document
 from worker.chunker import chunk_document_sections, create_adaptive_batches
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [Worker] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [Worker] %(message)s")
 logger = logging.getLogger(__name__)
 
 running = True
@@ -54,7 +51,7 @@ class IngestionWorker:
                 return
 
             logger.info(f"Processing document: {doc.filename} (ID: {doc.id}, Type: {doc.file_type})")
-            
+
             # Step 1: Parsing
             doc.status = "PARSING"
             db.commit()
@@ -84,9 +81,7 @@ class IngestionWorker:
             # Step 3: Checkpoint & Resume capability
             # Check already processed chunks in DB to avoid re-embedding
             processed_indices = set(
-                row[0] for row in db.query(DocumentChunk.chunk_index)
-                .filter(DocumentChunk.document_id == doc.id)
-                .all()
+                row[0] for row in db.query(DocumentChunk.chunk_index).filter(DocumentChunk.document_id == doc.id).all()
             )
             doc.processed_chunks = len(processed_indices)
             db.commit()
@@ -102,7 +97,7 @@ class IngestionWorker:
             batches = create_adaptive_batches(
                 pending_chunks,
                 max_batch_size=self.settings.MAX_BATCH_SIZE,
-                target_batch_tokens=self.settings.TARGET_BATCH_TOKENS
+                target_batch_tokens=self.settings.TARGET_BATCH_TOKENS,
             )
             logger.info(f"Batched {len(pending_chunks)} pending chunks into {len(batches)} batches.")
 
@@ -138,7 +133,7 @@ class IngestionWorker:
                         content=chunk_data["content"],
                         char_count=chunk_data["char_count"],
                         estimated_tokens=chunk_data["estimated_tokens"],
-                        embedding=emb
+                        embedding=emb,
                     )
                     chunk_objects.append(chunk_obj)
 
@@ -178,9 +173,9 @@ class IngestionWorker:
         """
         db: Session = SessionLocal()
         try:
-            interrupted_docs = db.query(Document).filter(
-                Document.status.in_(["PARSING", "PROCESSING", "RATE_LIMITED_PAUSED"])
-            ).all()
+            interrupted_docs = (
+                db.query(Document).filter(Document.status.in_(["PARSING", "PROCESSING", "RATE_LIMITED_PAUSED"])).all()
+            )
 
             if not interrupted_docs:
                 return

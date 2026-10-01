@@ -224,7 +224,13 @@ def test_rationalization_candidates(client):
 
 @pytest.mark.parametrize(
     "score,urgency,level",
-    [(94.5, "immediate", "P1"), (91.0, "immediate", "P1"), (82.0, "urgent", "P2"), (75.0, "urgent", "P2"), (45.0, "routine", "P3")],
+    [
+        (94.5, "immediate", "P1"),
+        (91.0, "immediate", "P1"),
+        (82.0, "urgent", "P2"),
+        (75.0, "urgent", "P2"),
+        (45.0, "routine", "P3"),
+    ],
 )
 def test_priority_score_bands(client, score, urgency, level):
     alarm = next(a for a in DATA_STORE["alarms"] if a["priority_score"] == score)
@@ -361,13 +367,22 @@ def test_update_ticket_close_sets_resolved_at(client):
     open_ticket = next(t for t in DATA_STORE["tickets"] if t["status"] == "open")
     r = client.patch(
         f"/tickets/{open_ticket['ticket_id']}",
-        json={"status": "Closed", "resolution_notes": "Fixed", "priority": "P3", "assigned_to": "Ops", "assigned_user": "Sam"},
+        json={
+            "status": "Closed",
+            "resolution_notes": "Fixed",
+            "priority": "P3",
+            "assigned_to": "Ops",
+            "assigned_user": "Sam",
+        },
     )
     ticket = r.json()["ticket"]
     assert ticket["status"] == "Closed"
     assert ticket["resolved_at"]
     assert (ticket["resolution_notes"], ticket["priority"], ticket["assigned_to"], ticket["assigned_user"]) == (
-        "Fixed", "P3", "Ops", "Sam",
+        "Fixed",
+        "P3",
+        "Ops",
+        "Sam",
     )
 
 

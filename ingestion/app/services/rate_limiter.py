@@ -85,7 +85,11 @@ class RateLimiter:
             if current_rpd + requests > self.settings.RATE_LIMIT_MAX_RPD:
                 # Need to wait until tomorrow UTC
                 seconds_to_tomorrow = 86400 - (int(now) % 86400)
-                return False, float(seconds_to_tomorrow), f"Daily request limit reached ({current_rpd}/{self.settings.RATE_LIMIT_MAX_RPD} RPD)"
+                return (
+                    False,
+                    float(seconds_to_tomorrow),
+                    f"Daily request limit reached ({current_rpd}/{self.settings.RATE_LIMIT_MAX_RPD} RPD)",
+                )
 
             # Check RPM
             if current_rpm + requests > self.settings.RATE_LIMIT_MAX_RPM:
@@ -95,7 +99,11 @@ class RateLimiter:
                     wait_time = max(0.5, (oldest_rpm[0][1] + 60.0) - now)
                 else:
                     wait_time = 1.0
-                return False, round(wait_time, 2), f"RPM limit reached ({current_rpm}/{self.settings.RATE_LIMIT_MAX_RPM} RPM)"
+                return (
+                    False,
+                    round(wait_time, 2),
+                    f"RPM limit reached ({current_rpm}/{self.settings.RATE_LIMIT_MAX_RPM} RPM)",
+                )
 
             # Check TPM
             if current_tpm + tokens > self.settings.RATE_LIMIT_MAX_TPM:
@@ -103,7 +111,11 @@ class RateLimiter:
                     wait_time = max(0.5, (earliest_tpm_entry[1] + 60.0) - now)
                 else:
                     wait_time = 1.0
-                return False, round(wait_time, 2), f"TPM limit approaching ({current_tpm + tokens}/{self.settings.RATE_LIMIT_MAX_TPM} TPM)"
+                return (
+                    False,
+                    round(wait_time, 2),
+                    f"TPM limit approaching ({current_tpm + tokens}/{self.settings.RATE_LIMIT_MAX_TPM} TPM)",
+                )
 
             return True, 0.0, "OK"
 

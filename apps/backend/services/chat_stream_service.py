@@ -126,9 +126,7 @@ class ChatEventMapper:
                 payload["server_label"] = server_label
             events.append(("tool_call", payload))
             # Hosted MCP tools run at the model provider: the result is on the call item.
-            if _get(raw, "type") == "mcp_call" and (
-                _get(raw, "output") is not None or _get(raw, "error") is not None
-            ):
+            if _get(raw, "type") == "mcp_call" and (_get(raw, "output") is not None or _get(raw, "error") is not None):
                 out: dict[str, Any] = {
                     "call_id": item.call_id,
                     "output": _stringify(_get(raw, "output") or ""),

@@ -3,8 +3,16 @@
 from apps.backend.app.main import SYSTEM_PROMPT_PATH
 
 TOOLS = [
-    "search_assets", "list_alarms", "get_alarm_context", "analyze_alarms", "find_correlated_alarms",
-    "search_similar_tickets", "find_tickets", "create_ticket", "update_ticket", "search_knowledge_base",
+    "search_assets",
+    "list_alarms",
+    "get_alarm_context",
+    "analyze_alarms",
+    "find_correlated_alarms",
+    "search_similar_tickets",
+    "find_tickets",
+    "create_ticket",
+    "update_ticket",
+    "search_knowledge_base",
 ]
 
 

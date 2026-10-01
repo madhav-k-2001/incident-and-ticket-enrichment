@@ -50,8 +50,7 @@ def test_quota_endpoint(client):
 def test_upload_invalid_file_type(client):
     file_content = b"Some executable or invalid data"
     response = client.post(
-        "/api/upload",
-        files=[("files", ("malicious.exe", file_content, "application/octet-stream"))]
+        "/api/upload", files=[("files", ("malicious.exe", file_content, "application/octet-stream"))]
     )
     assert response.status_code == 400
     assert "Unsupported file type" in response.json()["detail"]
@@ -68,8 +67,15 @@ def test_upload_valid_documents(client, mock_db_session):
             "/api/upload",
             files=[
                 ("files", ("document1.pdf", pdf_content, "application/pdf")),
-                ("files", ("document2.docx", docx_content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
-            ]
+                (
+                    "files",
+                    (
+                        "document2.docx",
+                        docx_content,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ),
+                ),
+            ],
         )
 
         assert response.status_code == 200
@@ -89,7 +95,7 @@ def test_list_documents(client, mock_db_session):
         file_path="/uploads/test-doc-123_report.pdf",
         status="COMPLETED",
         total_chunks=10,
-        processed_chunks=10
+        processed_chunks=10,
     )
 
     query_mock = MagicMock()

@@ -54,10 +54,7 @@ class SearchResponse(BaseModel):
 
 
 @router.post("/upload")
-async def upload_documents(
-    files: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
-):
+async def upload_documents(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     """
     Accepts multiple PDF, DOCX or Markdown file uploads, saves them, creates DB records,
     and enqueues them for asynchronous ingestion via Redis.
@@ -73,7 +70,7 @@ async def upload_documents(
         if ext not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type '{ext}' for file '{file.filename}'. Allowed: PDF, DOCX, MD."
+                detail=f"Unsupported file type '{ext}' for file '{file.filename}'. Allowed: PDF, DOCX, MD.",
             )
 
         # Generate unique storage filename to avoid collisions
@@ -96,7 +93,7 @@ async def upload_documents(
             file_path=str(file_path),
             status="PENDING",
             total_chunks=0,
-            processed_chunks=0
+            processed_chunks=0,
         )
         db.add(doc)
         db.commit()
@@ -118,23 +115,16 @@ async def upload_documents(
 
     return {
         "message": f"Successfully queued {len(uploaded_docs)} document(s) for ingestion.",
-        "documents": uploaded_docs
+        "documents": uploaded_docs,
     }
 
 
 @router.get("/documents")
-def list_documents(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db)
-):
+def list_documents(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100), db: Session = Depends(get_db)):
     """Returns the list of uploaded documents and their ingestion statuses."""
     docs = db.query(Document).order_by(Document.created_at.desc()).offset(skip).limit(limit).all()
     total = db.query(Document).count()
-    return {
-        "total": total,
-        "documents": [d.to_dict() for d in docs]
-    }
+    return {"total": total, "documents": [d.to_dict() for d in docs]}
 
 
 @router.get("/documents/{document_id}")
@@ -148,10 +138,7 @@ def get_document(document_id: str, db: Session = Depends(get_db)):
 
 @router.get("/documents/{document_id}/chunks")
 def get_document_chunks(
-    document_id: str,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db)
+    document_id: str, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100), db: Session = Depends(get_db)
 ):
     """Returns extracted chunks and vector embedding status for a document."""
     doc = db.query(Document).filter(Document.id == document_id).first()
@@ -166,17 +153,13 @@ def get_document_chunks(
         .limit(limit)
         .all()
     )
-    total_chunks = (
-        db.query(DocumentChunk)
-        .filter(DocumentChunk.document_id == document_id)
-        .count()
-    )
+    total_chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).count()
 
     return {
         "document_id": document_id,
         "filename": doc.filename,
         "total_chunks": total_chunks,
-        "chunks": [c.to_dict(include_embedding=False) for c in chunks]
+        "chunks": [c.to_dict(include_embedding=False) for c in chunks],
     }
 
 
@@ -206,10 +189,7 @@ def get_quota_status():
 
 
 @router.post("/search", response_model=SearchResponse)
-def search_embeddings(
-    req: SearchRequest,
-    db: Session = Depends(get_db)
-):
+def search_embeddings(req: SearchRequest, db: Session = Depends(get_db)):
     """
     Performs semantic vector search against stored document chunks in pgvector
     using cosine similarity with Gemini Embedding 2.
@@ -222,7 +202,7 @@ def search_embeddings(
         # Cosine distance in pgvector: <=>
         # Cosine similarity: 1 - (embedding <=> query_vector)
         where_clause = "WHERE dc.document_id = :doc_id" if req.document_id else ""
-        
+
         sql = text(f"""
             SELECT 
                 dc.id AS chunk_id,
@@ -247,21 +227,19 @@ def search_embeddings(
 
         results = []
         for row in rows:
-            results.append(SearchResultItem(
-                chunk_id=str(row.chunk_id),
-                document_id=str(row.document_id),
-                filename=str(row.filename),
-                chunk_index=int(row.chunk_index),
-                page_number=int(row.page_number) if row.page_number is not None else None,
-                content=str(row.content),
-                similarity=round(float(row.similarity), 4)
-            ))
+            results.append(
+                SearchResultItem(
+                    chunk_id=str(row.chunk_id),
+                    document_id=str(row.document_id),
+                    filename=str(row.filename),
+                    chunk_index=int(row.chunk_index),
+                    page_number=int(row.page_number) if row.page_number is not None else None,
+                    content=str(row.content),
+                    similarity=round(float(row.similarity), 4),
+                )
+            )
 
-        return SearchResponse(
-            query=req.query,
-            results_count=len(results),
-            results=results
-        )
+        return SearchResponse(query=req.query, results_count=len(results), results=results)
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")

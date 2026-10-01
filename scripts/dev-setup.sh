@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-shot local dev setup. Run from anywhere:  ./scripts/dev-setup.sh
 #
-#   - checks the required software (git, uv, docker + compose v2, Python 3.12+)
+#   - checks the required software (git, uv, make, docker + compose v2, Python 3.12+)
 #   - creates .env from .env.sample (if missing)
 #   - creates the repo-root .venv with the backend, simulator and ingestion dependencies
 #   - creates a .venv inside each MCP server with its dependencies
@@ -32,6 +32,12 @@ if command -v uv >/dev/null 2>&1; then
   ok uv "$(uv --version)"
 else
   fail uv "install from https://docs.astral.sh/uv/getting-started/installation/"
+fi
+
+if command -v make >/dev/null 2>&1; then
+  ok make "$(make --version | head -n1)"
+else
+  fail make "install it (Linux: apt install make, macOS: xcode-select --install, Windows: choco install make)"
 fi
 
 # uv can download Python 3.12 itself, so an older or missing system Python is only a warning.
@@ -78,4 +84,4 @@ for server in alarm-management ticketing knowledge-base; do
 done
 
 step "Done"
-echo "Next: edit .env, then run 'docker compose up --build' (or 'python scripts/run_tests.py')"
+echo "Next: edit .env, then run 'make up' (or 'make test'). 'make help' lists all targets"

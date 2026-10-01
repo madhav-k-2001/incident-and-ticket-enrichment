@@ -20,7 +20,7 @@ class Document(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     filename = Column(String(255), nullable=False)
     file_type = Column(String(10), nullable=False)  # 'pdf' or 'docx'
-    file_size = Column(Integer, nullable=False)      # in bytes
+    file_size = Column(Integer, nullable=False)  # in bytes
     file_path = Column(String(500), nullable=False)
     status = Column(String(30), default="PENDING", nullable=False, index=True)
     # Statuses: PENDING, PARSING, PROCESSING, RATE_LIMITED_PAUSED, COMPLETED, FAILED
@@ -32,10 +32,7 @@ class Document(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     chunks = relationship(
-        "DocumentChunk",
-        back_populates="document",
-        cascade="all, delete-orphan",
-        order_by="DocumentChunk.chunk_index"
+        "DocumentChunk", back_populates="document", cascade="all, delete-orphan", order_by="DocumentChunk.chunk_index"
     )
 
     def to_dict(self):
@@ -83,7 +80,7 @@ class DocumentChunk(Base):
             "ix_doc_chunk_embedding_hnsw",
             "embedding",
             postgresql_using="hnsw",
-            postgresql_ops={"embedding": "vector_cosine_ops"}
+            postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
 

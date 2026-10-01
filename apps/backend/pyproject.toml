@@ -19,7 +19,7 @@ dependencies = [
 [tool.pytest.ini_options]
 # Imports are rooted at the repo root (apps.backend...), two levels up.
 pythonpath = ["../.."]
-testpaths = ["../../tests"]
+testpaths = ["../../tests", "../../scripts/test_agent_service.py"]
 asyncio_mode = "auto"
 
 [dependency-groups]

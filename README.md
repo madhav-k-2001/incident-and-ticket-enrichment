@@ -200,7 +200,7 @@ Notes:
 ./scripts/dev-setup.sh
 ```
 
-It creates `.env` from `.env.sample` (if missing), a root `.venv` with the backend, simulator and ingestion
+It first checks that git, uv and Docker with Compose v2 are installed (it warns if Python 3.12+ is not on your PATH) and stops with a list of anything missing. It then creates `.env` from `.env.sample` (if missing), a root `.venv` with the backend, simulator and ingestion
 dependencies, and a `.venv` in each MCP server. Then `python scripts/run_tests.py` runs every test suite.
 
 ## Load the knowledge base

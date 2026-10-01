@@ -261,6 +261,30 @@ any suite fails. To run just the backend tests directly:
 cd apps/backend && uv run pytest
 ```
 
+### End-to-end tests (real API)
+
+`tests/e2e` holds end-to-end tests for the backend routes. They call a **running** backend over HTTP (no
+mocks, nothing imported from the app), so they are marked `e2e` and **excluded from the default run**:
+`pytest`, `python scripts/run_tests.py` and CI only run the unit tests. They skip themselves if
+`E2E_BASE_URL` is not set.
+
+```bash
+docker compose up -d                       # or any running backend
+cd apps/backend
+E2E_BASE_URL=http://localhost:9200 E2E_API_KEY=<one of API_KEYS> uv run pytest -m e2e
+uv run pytest -m "e2e and not llm"         # skip the tests that run a real agent turn
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `E2E_BASE_URL` | unset (tests skip) | Base URL of the running backend |
+| `E2E_API_KEY` | none | `X-API-Key` to send, needed when the server sets `API_KEYS` |
+| `E2E_TIMEOUT_SECONDS` | `120` | Per-request timeout |
+
+Tests marked `llm` run real agent turns, so they need `OPENAI_API_KEY` on the server and cost tokens.
+They never approve a tool call (a paused run is rejected), so no ticket is created or changed. Chat
+sessions they create stay in the database under ids starting with `e2e-`.
+
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md): components and the end-to-end interaction flow

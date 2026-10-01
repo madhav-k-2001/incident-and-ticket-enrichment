@@ -352,6 +352,8 @@ ruff format --check .  # check only
 - Auth is a shared API key; there are no per-user roles.
 - Write approval is enforced by the backend. The ticketing MCP server alone does not ask for approval.
 
+See [docs/known-limitations.md](docs/known-limitations.md) for the full list.
+
 ## Further reading
 
 - [docs/architecture.md](docs/architecture.md): components and the end-to-end interaction flow

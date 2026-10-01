@@ -1,0 +1,37 @@
+# Known Limitations
+
+Major gaps against the [submission guidelines](../use_case_docs/Submission_and_Evaluation_Guidelines.md).
+
+## Testing and CI
+
+- **No CI.** There is no `.github/workflows/ci.yml`; format, lint and tests run locally only (`ruff format`, `python scripts/run_tests.py`).
+- **No end-to-end or integration tests.** The root `tests/` holds backend unit tests only. There is no automated scenario that runs GUI/backend → MCP → Alarm API → RAG → cited answer.
+- **No orchestration tests** for multi-step MCP chains, partial source failure or conflicting evidence. Those behaviours are defined in the system prompt and exercised only manually.
+- **No linting or static analysis.** Ruff is used as a formatter only.
+
+## Packaging and operations
+
+- **Postgres is external.** `docker compose up` does not start a database; an external PostgreSQL with pgvector (for example Neon) and an OpenAI key are required.
+- **Ingestion runs separately.** It has its own compose file, and documents are uploaded by hand through its portal. There is no automatic index refresh.
+- **No health checks or startup ordering** between services in `docker-compose.yml`.
+- **Missing repo files:** root `Dockerfile`, `Makefile` and `LICENSE`.
+
+## RAG
+
+- **Citations are filename plus page or chunk.** There is no section-level metadata and no reranker.
+- **Prompt-injection defence is prompt-based.** Retrieved text is treated as data by instruction; there is no content filtering.
+- **Semantic search needs a Gemini key.** Without it, mock embeddings are used and ranking is meaningless.
+
+## Security and observability
+
+- **Auth is one shared API key**, with no per-user roles.
+- **Write approval lives in the backend.** The ticketing MCP server writes immediately if called directly.
+- **Backend logging is basic.** The MCP servers log structured JSON with trace ids. The backend does not yet log request or conversation ids, LLM latency or retrieval scores.
+
+## Demo and documentation
+
+- **Not yet included:** the demo video, screenshots, a rendered `architecture-diagram.png` (the diagram is Mermaid in the README and `docs/architecture.md`), `docs/api-integration.md` and `docs/design-decisions.md`.
+
+## Data
+
+- **The Alarm/Ticketing API is a simulator.** Data is synthetic, and the document corpus is 9 synthetic samples.

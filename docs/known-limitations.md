@@ -1,7 +1,5 @@
 # Known Limitations
 
-Major gaps against the [submission guidelines](../use_case_docs/Submission_and_Evaluation_Guidelines.md).
-
 ## Testing and CI
 
 - **No CI.** There is no `.github/workflows/ci.yml`; format, lint and tests run locally only (`ruff format`, `python scripts/run_tests.py`).

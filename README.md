@@ -8,9 +8,9 @@ The agent is built on the OpenAI Agents SDK. It reaches its data through three
 [MCP](https://modelcontextprotocol.io) servers, and it keeps chat history in PostgreSQL.
 
 - [Architecture](#architecture)
-- [Repository layout](#repository-layout)
 - [Get started (Docker Compose)](#get-started-docker-compose)
 - [Environment file](#environment-file)
+- [Local dev setup](#local-dev-setup)
 - [Load the knowledge base](#load-the-knowledge-base)
 - [Using the app](#using-the-app)
 - [Run without Docker](#run-without-docker)
@@ -26,15 +26,15 @@ The agent is built on the OpenAI Agents SDK. It reaches its data through three
 ```mermaid
 flowchart LR
     User["Operator"] --> UI["Chat UI<br/>/ui/"]
-    UI -->|"SSE: /chat/stream"| Backend["Backend (FastAPI)<br/>agent + chat history<br/>:9200"]
-    Backend -->|"MCP"| AlarmMCP["Alarm MCP :9101"]
-    Backend -->|"MCP"| TicketMCP["Ticketing MCP :9102"]
-    Backend -->|"MCP"| KBMCP["Knowledge Base MCP :9103"]
-    AlarmMCP --> Sim["Alarm & Ticketing<br/>simulator :8000"]
-    TicketMCP --> Sim
-    KBMCP --> PG[("PostgreSQL + pgvector")]
-    Backend -->|"chat history"| PG
-    Ingest["Ingestion pipeline<br/>(Redis + worker + Gemini)"] -->|"chunks + embeddings"| PG
+    UI -->|"HTTP (SSE): /chat/stream"| Backend["Backend (FastAPI)<br/>agent + chat history<br/>:9200"]
+    Backend -->|"HTTP (MCP)"| AlarmMCP["Alarm MCP :9101"]
+    Backend -->|"HTTP (MCP)"| TicketMCP["Ticketing MCP :9102"]
+    Backend -->|"HTTP (MCP)"| KBMCP["Knowledge Base MCP :9103"]
+    AlarmMCP -->|"HTTP (REST)"| Sim["Alarm & Ticketing<br/>simulator :8000"]
+    TicketMCP -->|"HTTP (REST)"| Sim
+    KBMCP -->|"SQL"| PG[("PostgreSQL + pgvector")]
+    Backend -->|"SQL: chat history"| PG
+    Ingest["Ingestion pipeline<br/>(Redis + worker + Gemini)"] -->|"SQL: chunks + embeddings"| PG
 ```
 
 | Service | Folder | Host port | What it does |
@@ -48,24 +48,6 @@ flowchart LR
 
 The compose stack does **not** start a database. All services share one external PostgreSQL database
 (the project uses [Neon](https://neon.tech)) that has the `pgvector` extension available.
-
-## Repository layout
-
-```
-apps/
-  backend/                       FastAPI app, agent, MCP loading, prompts/system_prompt.md
-  frontend/                      Chat UI (plain HTML/CSS/JS, no build step), served by the backend
-  alarms_and_ticket_simulation_api/   Source-system simulator (FastAPI + mock_data.json)
-mcp_servers/                     alarm-management, ticketing, knowledge-base MCP servers
-ingestion/                       Document ingestion pipeline (upload UI, Redis queue, worker)
-test_data/rag_data/              Sample SOPs, troubleshooting guides, KB articles, escalation matrix
-tests/                           Backend unit tests
-scripts/run_tests.py             Runs every test suite from one command
-docs/                            Architecture and chat stream protocol
-use_case_docs/                   Assignment brief and Postman collections for the simulator API
-docker-compose.yml               Full stack (simulator, 3 MCP servers, backend + UI)
-.env.sample                      Environment template for the whole repo
-```
 
 ## Get started (Docker Compose)
 
@@ -210,43 +192,31 @@ Notes:
 - Per-component templates are also available: `apps/backend/.env.example`, `ingestion/.env.example` and
   `mcp_servers/*/.env.example`.
 
+## Local dev setup
+
+[`scripts/dev-setup.sh`](scripts/dev-setup.sh) prepares a local checkout in one step. It needs [uv](https://docs.astral.sh/uv/):
+
+```bash
+./scripts/dev-setup.sh
+```
+
+It creates `.env` from `.env.sample` (if missing), a root `.venv` with the backend, simulator and ingestion
+dependencies, and a `.venv` in each MCP server. Then `python scripts/run_tests.py` runs every test suite.
+
 ## Load the knowledge base
 
-The Knowledge Base MCP reads document chunks that the ingestion pipeline wrote to Postgres. A fresh
-database has none, so the copilot can answer alarm and ticket questions but has no SOPs to cite until you
-ingest some. The sample corpus is in `test_data/rag_data/` (see `DOCUMENT_MANIFEST.md` there).
-
-Ingestion has its own compose file (Redis, a worker and an upload UI) and reads `ingestion/.env`:
+A fresh database has no documents, so the copilot has no SOPs to cite until you ingest some. Use the
+ingestion pipeline (its own compose file, reads `ingestion/.env`) with the sample files in `test_data/rag_data/`:
 
 ```bash
 cd ingestion
-cp .env.example .env
-```
-
-Edit `ingestion/.env`. Point it at the **same database** as the main stack, and set the Gemini key:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-DATABASE_URL=postgresql://USER:PASSWORD@your-endpoint.neon.tech/your_db?sslmode=require
-```
-
-Then start it and upload the files:
-
-```bash
+cp .env.example .env     # set GEMINI_API_KEY and the same database as the main stack
 docker compose up -d --build
-# Open http://localhost:9000, drag in the files from test_data/rag_data/ (.md, .pdf and .docx are accepted)
-# and wait until every document shows COMPLETED.
 ```
 
-The ingestion upload UI is on host port `9000` and its Redis on `6380`, so it can run alongside the main
-stack without port clashes. Once the documents show `COMPLETED` you can stop it with `docker compose down`.
-
-Check the result through the Knowledge Base MCP, or just ask the copilot a procedure question. If you
-ingested with a real Gemini key, set the **same** `GEMINI_API_KEY`, `GEMINI_EMBEDDING_MODEL` and
-`EMBEDDING_DIMENSION` in the root `.env`. If you leave the key empty in both places, mock embeddings are
-used on both sides, which is fine for a demo but not for real semantic search.
-
-More detail: [ingestion/README.md](ingestion/README.md).
+Open <http://localhost:9000>, upload the files and wait until each shows `COMPLETED`. Use the same
+`GEMINI_API_KEY`, `GEMINI_EMBEDDING_MODEL` and `EMBEDDING_DIMENSION` in the root `.env`. Details:
+[ingestion/README.md](ingestion/README.md).
 
 ## Tool approval
 

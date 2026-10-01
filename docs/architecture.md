@@ -12,29 +12,17 @@ The architecture separates user interaction, intelligent orchestration, tool exe
 
 ```mermaid
 flowchart LR
-    User["👤 User"]
-    Frontend["Frontend GUI"]
-    Copilot["Copilot Orchestrator"]
-    AlarmMCP["Alarm MCP Server"]
-    TicketMCP["Ticketing MCP Server"]
-    KBMCP["Knowledge Base MCP Server"]
-    AlarmAPI["Alarm Management API"]
-    PostgresDB[("PostgreSQL Database\n(pgvector)")]
-    TicketingAPI["Ticketing API"]
-    Ingestion["Ingestion Pipeline\n(Redis + Worker + Gemini)"]
-
-    User --> Frontend
-    Frontend --> Copilot
-    Copilot --> AlarmMCP
-    Copilot --> TicketMCP
-    Copilot --> KBMCP
-    Copilot -->|"Chat History"| PostgresDB
-    AlarmMCP --> AlarmAPI
-    TicketMCP --> TicketingAPI
-    KBMCP -->|"Vectors"| PostgresDB
-    Ingestion -->|"Chunks + Embeddings"| PostgresDB
+    User["User"] --> UI["Frontend GUI<br/>/ui/"]
+    UI -->|"SSE: /chat/stream"| Backend["Copilot Orchestrator<br/>(FastAPI backend)"]
+    Backend -->|"MCP"| AlarmMCP["Alarm MCP Server"]
+    Backend -->|"MCP"| TicketMCP["Ticketing MCP Server"]
+    Backend -->|"MCP"| KBMCP["Knowledge Base MCP Server"]
+    AlarmMCP --> Sim["Alarm/Ticket Management API"]
+    TicketMCP --> Sim
+    KBMCP --> PG[("PostgreSQL Database (pgvector)")]
+    Backend -->|"chat history"| PG
+    Ingest["Ingestion Pipeline<br/>(Redis + worker + Gemini)"] -->|"chunks + embeddings"| PG
 ```
-
 ---
 
 ## 3. Core Components
@@ -59,28 +47,26 @@ flowchart LR
 * Exposes alarm tools to the Copilot: asset search, alarm telemetry retrieval, summaries, priority scores, and operator recommendations.
 * Connects directly to the **Alarm Management API**.
 
-### 3.5 Alarm Management API
-* Backend source system providing real-time and historical plant telemetry, asset hierarchy, alarm states, and analytical calculations.
-
+### 3.5 Alarm/Ticket Management API
+* Backend source system providing real-time and historical plant telemetry, asset hierarchy, alarm states, and analytical calculations. And for 
+  incident management, handling ticket search, creation, and persistence.
+  
 ### 3.6 Ticketing MCP Server
 * Exposes tools related to incident ticket management to the Copilot.
 * Connects directly to the **Ticketing API**:
   * Executes tools for searching similar past tickets.
   * Executes tools for creating new incident tickets.
 
-### 3.7 Ticketing API
-* Backend system of record for incident management, handling ticket search, creation, and persistence.
-
-### 3.8 Knowledge Base MCP Server
+### 3.7 Knowledge Base MCP Server
 * Exposes read-only tools for retrieving troubleshooting guides, standard operating procedures (SOPs), and manuals.
 * Connects directly to the **PostgreSQL Database (pgvector)** to run similarity searches over the **Vectors**.
 
-### 3.9 PostgreSQL Database (pgvector)
+### 3.8 PostgreSQL Database (pgvector)
 * Central persistence layer serving two distinct responsibilities:
   1. **Chat History**: Directly accessed by the Copilot Orchestrator to persist conversational messages and session context.
   2. **Vectors**: Written by the Ingestion Pipeline and queried by the Knowledge Base MCP Server for semantic search via the `pgvector` extension.
 
-### 3.10 Ingestion Pipeline
+### 3.9 Ingestion Pipeline
 * Prepares the knowledge base. It runs separately from the chat flow.
 * Parses and chunks documents, embeds them with Gemini (jobs are queued through Redis and handled by a worker), and writes the chunks and embeddings to the PostgreSQL Database (pgvector).
 * See [`ingestion/README.md`](../ingestion/README.md) for details.
